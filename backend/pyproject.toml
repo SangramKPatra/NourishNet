@@ -1,0 +1,30 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "nourishnet-backend"
+version = "0.1.0"
+description = "NourishNet API Backend"
+requires-python = ">=3.9"
+dependencies = [
+    "fastapi",
+    "uvicorn",
+    "sqlalchemy[asyncio]",
+    "asyncpg",
+    "aiosqlite",
+    "pydantic",
+    "pydantic-settings",
+    "httpx",
+    "google-genai",
+    "python-multipart",
+    "pytest",
+    "pytest-asyncio",
+    "ruff",
+]
+
+[project.scripts]
+dev = "dev:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["."]

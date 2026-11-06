@@ -1,0 +1,13 @@
+fastapi
+uvicorn
+sqlalchemy[asyncio]
+asyncpg
+aiosqlite
+pydantic
+pydantic-settings
+httpx
+google-genai
+python-multipart
+pytest
+pytest-asyncio
+ruff
