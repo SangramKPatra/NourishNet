@@ -1,65 +1,102 @@
 from datetime import datetime
-from sqlalchemy import Column, String, Integer, Float, DateTime, Boolean, JSON, Enum
-from sqlalchemy.dialects.postgresql import UUID
 import uuid
-from .models import Base, Tier
+
+from sqlalchemy import Boolean, Column, DateTime, Float, Integer, JSON, String
+from sqlalchemy.types import TypeDecorator, CHAR
+from sqlalchemy.dialects.postgresql import UUID as PGUUID
+
+from .db import Base
+
+
+class GUID(TypeDecorator):
+    """Store UUIDs natively on PostgreSQL and as strings on SQLite."""
+
+    impl = CHAR
+    cache_ok = True
+
+    def load_dialect_impl(self, dialect):
+        if dialect.name == "postgresql":
+            return dialect.type_descriptor(PGUUID(as_uuid=True))
+        return dialect.type_descriptor(CHAR(36))
+
+    def process_bind_param(self, value, dialect):
+        if value is None:
+            return None
+        if dialect.name == "postgresql":
+            return value if isinstance(value, uuid.UUID) else uuid.UUID(str(value))
+        return str(value)
+
+    def process_result_value(self, value, dialect):
+        if value is None:
+            return None
+        return value if isinstance(value, uuid.UUID) else uuid.UUID(str(value))
+
 
 class Donor(Base):
     __tablename__ = "donors"
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+
+    id = Column(GUID(), primary_key=True, default=uuid.uuid4)
     name = Column(String, nullable=False)
-    org_type = Column(Enum("canteen", "caterer", "cloud_kitchen", "other"), nullable=False)
+    org_type = Column(String, nullable=False)
     lat = Column(Float, nullable=False)
     lng = Column(Float, nullable=False)
-    token = Column(String, unique=True, nullable=False)
+    token = Column(String, unique=True, nullable=False, index=True)
+
 
 class Shelter(Base):
     __tablename__ = "shelters"
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+
+    id = Column(GUID(), primary_key=True, default=uuid.uuid4)
     name = Column(String, nullable=False)
     lat = Column(Float, nullable=False)
     lng = Column(Float, nullable=False)
     capacity_portions = Column(Integer, nullable=False)
     contact = Column(String)
-    active = Column(Boolean, default=True)
-    verified = Column(Boolean, default=False)
+    active = Column(Boolean, default=True, nullable=False)
+    verified = Column(Boolean, default=False, nullable=False)
+
 
 class Volunteer(Base):
     __tablename__ = "volunteers"
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+
+    id = Column(GUID(), primary_key=True, default=uuid.uuid4)
     name = Column(String, nullable=False)
     telegram_chat_id = Column(String, unique=True, nullable=False)
     lat = Column(Float)
     lng = Column(Float)
-    active = Column(Boolean, default=True)
+    active = Column(Boolean, default=True, nullable=False)
+
 
 class Batch(Base):
     __tablename__ = "batches"
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    donor_id = Column(UUID(as_uuid=True), nullable=False)
+
+    id = Column(GUID(), primary_key=True, default=uuid.uuid4)
+    donor_id = Column(GUID(), nullable=False, index=True)
     items = Column(JSON, nullable=False)
     total_kg = Column(Float, nullable=False)
     portions = Column(Integer, nullable=False)
-    tier = Column(Enum(Tier), nullable=False)
+    tier = Column(String, nullable=False)
     ambient_temp_c = Column(Float)
     humidity_pct = Column(Float)
     weather_source = Column(String)
     safe_window_min = Column(Integer)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     expires_at = Column(DateTime)
-    status = Column(String, nullable=False, default="draft")
-    shelter_id = Column(UUID(as_uuid=True))
-    volunteer_id = Column(UUID(as_uuid=True))
+    status = Column(String, nullable=False, default="draft", index=True)
+    shelter_id = Column(GUID())
+    volunteer_id = Column(GUID())
     lat = Column(Float)
     lng = Column(Float)
-    is_demo = Column(Boolean, default=False)
+    is_demo = Column(Boolean, default=False, nullable=False)
+
 
 class DispatchLog(Base):
     __tablename__ = "dispatch_logs"
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    batch_id = Column(UUID(as_uuid=True), nullable=False)
+
+    id = Column(GUID(), primary_key=True, default=uuid.uuid4)
+    batch_id = Column(GUID(), nullable=False, index=True)
     channel = Column(String)
     payload = Column(JSON)
     status = Column(String)
     attempt = Column(Integer)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)

@@ -14,7 +14,7 @@ You are building and maintaining **NourishNet**, a hyper-local food rescue and d
 
 | Layer | Choice |
 | --- | --- |
-| Frontend | Next.js 15 (App Router), TypeScript, Tailwind CSS, mobile-first PWA |
+| Frontend | Vite 5 + React 18, react-router-dom, TypeScript, Tailwind CSS, mobile-first PWA |
 | Backend | FastAPI, Python 3.11+, async, Pydantic v2 |
 | Vision AI | Gemini 2.5 Flash via `google-genai` SDK, strict JSON schema output |
 | Weather | Open-Meteo API (no auth) |
@@ -46,10 +46,13 @@ nourishnet/
 │   ├── seed.py                # demo shelters, volunteers, donors
 │   └── requirements.txt
 ├── frontend/
-│   ├── app/
-│   │   ├── donor/page.tsx     # camera capture + confirm
-│   │   ├── dashboard/page.tsx # command center
-│   │   └── layout.tsx
+│   ├── index.html              # Vite entry HTML
+│   ├── vite.config.ts          # React plugin, /api dev proxy → FastAPI
+│   ├── src/
+│   │   ├── main.tsx            # router mount (react-router-dom)
+│   │   ├── pages/
+│   │   │   ├── donor/page.tsx     # camera capture + confirm
+│   │   │   └── dashboard/page.tsx # command center
 │   ├── components/            # CountdownCard, ImpactCounters, BatchTable...
 │   └── lib/api.ts             # typed API client
 ├── .env.example

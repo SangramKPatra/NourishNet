@@ -1,8 +1,13 @@
+import os
+import sys
 import uvicorn
+
+# Add parent directory to path so backend module is importable
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 def main():
     uvicorn.run(
-        "app.main:app",
+        "backend.app.main:app",
         host="0.0.0.0",
         port=8000,
         reload=True

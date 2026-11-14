@@ -1,103 +1,127 @@
 import asyncio
-import uuid
 from datetime import datetime, timedelta
 
-from sqlalchemy.ext.asyncio import create_async_engine
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy import select
 
-from .db import engine, AsyncSessionLocal
-from .models import Base, Donor, Shelter, Volunteer, Batch, DispatchLog
 from .config import settings
+from .db import AsyncSessionLocal, Base, engine
+from .models import Batch, DispatchLog, Donor, Shelter, Volunteer
 
-async def create_tables():
-    # Use sync engine to create tables (SQLite compatibility)
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
 
-async def seed_demo_data():
+async def create_tables() -> None:
+    async with engine.begin() as connection:
+        await connection.run_sync(Base.metadata.create_all)
+
+
+async def seed_demo_data() -> None:
     async with AsyncSessionLocal() as session:
-        # Demo donor
-        if not await session.get(Donor, uuid.UUID('0'*32)):  # placeholder check
-            demo_donor = Donor(
+        donor = await session.scalar(
+            select(Donor).where(Donor.token == "demo-donor-token")
+        )
+        if donor is None:
+            donor = Donor(
                 name="Demo Canteen",
                 org_type="canteen",
                 lat=37.7749,
                 lng=-122.4194,
-                token="demo-donor-token"
+                token="demo-donor-token",
             )
-            session.add(demo_donor)
-            await session.commit()
+            session.add(donor)
+            await session.flush()
 
-        # Demo shelters (4 around city center)
         shelter_coords = [
-            (37.7749, -122.4194),  # demo donor location
+            (37.7749, -122.4194),
             (37.7800, -122.4200),
             (37.7600, -122.4300),
             (37.7500, -122.4400),
         ]
-        for i, (lat, lng) in enumerate(shelter_coords):
-            shelter = Shelter(
-                name=f"Shelter {i+1}",
-                lat=lat,
-                lng=lng,
-                capacity_portions=100,
-                contact=f"shelter{i+1}@example.com",
-                active=True,
-                verified=True,
+        for index, (lat, lng) in enumerate(shelter_coords, start=1):
+            name = f"Shelter {index}"
+            shelter = await session.scalar(
+                select(Shelter).where(Shelter.name == name)
             )
-            session.add(shelter)
-        await session.commit()
+            if shelter is None:
+                session.add(
+                    Shelter(
+                        name=name,
+                        lat=lat,
+                        lng=lng,
+                        capacity_portions=100,
+                        contact=f"shelter{index}@example.com",
+                        active=True,
+                        verified=True,
+                    )
+                )
 
-        # Demo volunteers
-        for i in range(5):
-            volunteer = Volunteer(
-                name=f"Volunteer {i+1}",
-                telegram_chat_id=f"volunteer{i+1}@example.com",
-                lat=37.7700 + i * 0.001,
-                lng=-122.4150 + i * 0.001,
-                active=True,
+        for index in range(1, 6):
+            chat_id = f"volunteer{index}@example.com"
+            volunteer = await session.scalar(
+                select(Volunteer).where(Volunteer.telegram_chat_id == chat_id)
             )
-            session.add(volunteer)
-        await session.commit()
+            if volunteer is None:
+                session.add(
+                    Volunteer(
+                        name=f"Volunteer {index}",
+                        telegram_chat_id=chat_id,
+                        lat=37.7700 + index * 0.001,
+                        lng=-122.4150 + index * 0.001,
+                        active=True,
+                    )
+                )
 
-        # Demo batch (draft)
-        demo_batch = Batch(
-            donor_id=await session.get(Donor, uuid.UUID('0'*32)),  # placeholder; in real code fetch by token
-            items=[{
-                "name": "cooked rice",
-                "approx_kg": 2.0
-            }],
-            total_kg=2.0,
-            portions=13,
-            tier="HIGH_MOISTURE",
-            ambient_temp_c=32.0,
-            humidity_pct=60,
-            weather_source="fallback",
-            safe_window_min=135,  # 2h15m
-            created_at=datetime.utcnow(),
-            expires_at=datetime.utcnow() + timedelta(minutes=135),
-            status="draft",
-            is_demo=True,
+        demo_batch = await session.scalar(
+            select(Batch).where(
+                Batch.donor_id == donor.id,
+                Batch.is_demo.is_(True),
+            )
         )
-        session.add(demo_batch)
-        await session.commit()
+        if demo_batch is None:
+            now = datetime.utcnow()
+            demo_batch = Batch(
+                donor_id=donor.id,
+                items=[{"name": "cooked rice", "approx_kg": 2.0}],
+                total_kg=2.0,
+                portions=13,
+                tier="HIGH_MOISTURE",
+                ambient_temp_c=32.0,
+                humidity_pct=60.0,
+                weather_source="fallback",
+                safe_window_min=135,
+                created_at=now,
+                expires_at=now + timedelta(minutes=135),
+                status="draft",
+                lat=donor.lat,
+                lng=donor.lng,
+                is_demo=True,
+            )
+            session.add(demo_batch)
+            await session.flush()
 
-        # Demo dispatch log stub
-        log = DispatchLog(
-            batch_id=demo_batch.id,
-            channel="telegram",
-            payload={"message": "claim"},
-            status="pending",
-            attempt=1,
-            created_at=datetime.utcnow(),
+        log = await session.scalar(
+            select(DispatchLog).where(
+                DispatchLog.batch_id == demo_batch.id,
+                DispatchLog.channel == "telegram",
+            )
         )
-        session.add(log)
+        if log is None:
+            session.add(
+                DispatchLog(
+                    batch_id=demo_batch.id,
+                    channel="telegram",
+                    payload={"message": "claim"},
+                    status="pending",
+                    attempt=1,
+                )
+            )
+
         await session.commit()
 
-async def main():
+
+async def main() -> None:
     await create_tables()
     await seed_demo_data()
-    print("✅ Phase 1 – Data model tables created and demo seed data loaded (idempotent)")
+    print("Demo donor, shelters, volunteers, and batch seeded idempotently")
+
 
 if __name__ == "__main__":
     asyncio.run(main())

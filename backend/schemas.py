@@ -1,41 +1,92 @@
-from pydantic import BaseModel, Field
-from typing import List, Literal, Optional
 from datetime import datetime
+from typing import Literal
+from uuid import UUID
+
+from pydantic import BaseModel, Field, ConfigDict
 
 Tier = Literal["HIGH_MOISTURE", "MEDIUM_MOISTURE", "DRY"]
+BatchStatus = Literal[
+    "draft", "pending", "dispatched", "claimed", "picked_up",
+    "delivered", "expired", "at_risk",
+]
+
 
 class FoodItem(BaseModel):
-    name: str
-    approx_kg: float
+    name: str = Field(min_length=1, max_length=200)
+    approx_kg: float = Field(gt=0, le=100)
+
 
 class VisionResult(BaseModel):
-    items: List[FoodItem]
-    estimated_portions: int
+    items: list[FoodItem]
+    estimated_portions: int = Field(ge=0)
     perishability_tier: Tier
-    confidence: float
-    notes: Optional[str] = None
+    confidence: float = Field(ge=0, le=1)
+    notes: str | None = None
 
-# Request/Response schemas for API
-class ScanRequest(BaseModel):
-    image: bytes
-    lat: float
-    lng: float
-    donor_token: str
 
 class ScanResponse(BaseModel):
-    draft_id: str
-    items: List[FoodItem]
+    draft_id: UUID
+    items: list[FoodItem]
     portions: int
     tier: Tier
     ambient_temp_c: float
+    humidity_pct: float
+    weather_source: str
     safe_window_min: int
     expires_at: datetime
     needs_manual_entry: bool
 
+
 class ConfirmRequest(BaseModel):
-    items: Optional[List[FoodItem]] = None
-    portions: Optional[int] = None
+    items: list[FoodItem] | None = None
+    portions: int | None = Field(default=None, gt=0)
+
+
+class BatchResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    donor_id: UUID
+    items: list[FoodItem]
+    total_kg: float
+    portions: int
+    tier: Tier
+    ambient_temp_c: float | None
+    humidity_pct: float | None
+    weather_source: str | None
+    safe_window_min: int | None
+    created_at: datetime
+    expires_at: datetime | None
+    status: str
+    shelter_id: UUID | None
+    volunteer_id: UUID | None
+    lat: float | None
+    lng: float | None
+    is_demo: bool
+    remaining_min: int = 0
+    urgency: float | None = None
+    urgency_band: str = "normal"
+
 
 class ConfirmResponse(BaseModel):
-    batch_id: str
+    batch: BatchResponse
     status: str
+
+
+class ClaimRequest(BaseModel):
+    volunteer_id: UUID | None = None
+    telegram_chat_id: str | None = None
+
+
+class StatusResponse(BaseModel):
+    batch: BatchResponse
+
+
+class StatsResponse(BaseModel):
+    meals: int
+    kg: float
+    co2e_kg: float
+    active_batches: int
+    delivered_batches: int
+    demo: dict[str, float | int]
+    real: dict[str, float | int]

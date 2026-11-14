@@ -1,0 +1,28 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body { margin: 0; font-family: 'DM Sans', sans-serif; -webkit-font-smoothing: antialiased; }
+  button, input { font: inherit; }
+}
+
+@layer components {
+  .font-display { font-family: 'Space Grotesk', sans-serif; }
+  .eyebrow { @apply text-[11px] font-bold uppercase tracking-[0.18em] text-[#799d13]; }
+  .field { @apply rounded-xl border border-[#dfe7dc] bg-white px-4 py-3 text-sm font-medium text-[#18342b] outline-none transition placeholder:text-[#9aafa3] focus:border-[#799d13] focus:ring-4 focus:ring-[#d9f06d]/40; }
+  .metric-card { @apply rounded-2xl border border-[#dfe7dc] bg-white p-5 shadow-[0_8px_24px_rgba(24,52,43,0.04)]; }
+  .status-chip { @apply rounded-full bg-[#edf4e5] px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#557c16]; }
+  .demo-chip { @apply rounded-full bg-[#fff3d0] px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#a76e16]; }
+  .status-dot { @apply h-2.5 w-2.5 rounded-full bg-[#83b31c]; }
+  .status-dot.watch { @apply bg-[#d39a2d]; }
+  .status-dot.critical { @apply bg-[#cf5d45]; }
+  .batch-card { @apply rounded-2xl border border-[#dfe7dc] border-l-4 border-l-[#83b31c] bg-white p-5 shadow-[0_8px_24px_rgba(24,52,43,0.04)]; }
+  .batch-card.watch { @apply border-l-[#d39a2d]; }
+  .batch-card.critical { @apply border-l-[#cf5d45]; }
+  .skeleton { @apply animate-pulse rounded-2xl bg-[#e8eee4]; }
+}

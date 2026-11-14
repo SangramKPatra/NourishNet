@@ -7,7 +7,7 @@ You are a senior full-stack engineer. Build the **NourishNet MVP**: a mobile-fir
 
 ## Stack
 
-Next.js 15 (App Router, TS, Tailwind) · FastAPI (Python 3.11, async, Pydantic v2) · UV (Python package manager) · Gemini 2.5 Flash (`google-genai`) · Open-Meteo · PostgreSQL/Supabase via SQLAlchemy async (SQLite for local dev) · Telegram Bot API via `httpx`.
+Next.js 15 (App Router, TS, Tailwind) → **replaced:** Vite 5 + React 18 (TS, Tailwind, react-router-dom) · FastAPI (Python 3.11, async, Pydantic v2) · UV (Python package manager) · Gemini 2.5 Flash (`google-genai`) · Open-Meteo · PostgreSQL/Supabase via SQLAlchemy async (SQLite for local dev) · Telegram Bot API via `httpx`.
 
 ## Phase 0 — Scaffold
 
