@@ -25,4 +25,8 @@
   .batch-card.watch { @apply border-l-[#d39a2d]; }
   .batch-card.critical { @apply border-l-[#cf5d45]; }
   .skeleton { @apply animate-pulse rounded-2xl bg-[#e8eee4]; }
+  .cream-card { @apply rounded-2xl border border-[#efe9d8] bg-[#fffdf5] p-5 shadow-[0_8px_24px_rgba(24,52,43,0.04)]; }
+  .teal-chip { @apply rounded-full bg-[#d7f5ee] px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#0f766e]; }
+  .tier-chip { @apply rounded-full bg-[#edf4e5] px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#557c16]; }
+  .grad-text { @apply bg-gradient-to-r from-[#18342b] via-[#0f766e] to-[#799d13] bg-clip-text text-transparent; }
 }

@@ -11,19 +11,64 @@ function statusLabel(status: string) {
   return status.replace('_', ' ');
 }
 
+function urgencyOf(batch: Batch) {
+  const win = batch.safe_window_min ?? 30;
+  if (batch.remaining_min <= Math.max(15, win * 0.25)) return 'critical';
+  if (batch.remaining_min <= win * 0.5) return 'watch';
+  return 'safe';
+}
+
+const URGENCY = {
+  safe: { bar: 'bg-[#83b31c]', text: 'text-[#557c16]', chip: 'bg-[#edf4e5] text-[#557c16]', label: 'Safe' },
+  watch: { bar: 'bg-[#d39a2d]', text: 'text-[#a1720f]', chip: 'bg-[#fff3d0] text-[#a76e16]', label: 'Watch' },
+  critical: { bar: 'bg-[#cf5d45]', text: 'text-[#b23c26]', chip: 'bg-[#ffe9ea] text-[#b23c26]', label: 'Critical' },
+} as const;
+
 function BatchCard({ batch }: { batch: Batch }) {
   const [remaining, setRemaining] = useState(batch.remaining_min);
   useEffect(() => {
     const timer = window.setInterval(() => setRemaining((value) => Math.max(0, value - 1)), 60000);
     return () => window.clearInterval(timer);
   }, []);
-  const urgency = remaining <= Math.max(15, (batch.safe_window_min ?? 30) * 0.25) ? 'critical' : remaining <= (batch.safe_window_min ?? 30) * 0.5 ? 'watch' : 'safe';
-  return <article className={`batch-card ${urgency}`}><div className="flex items-start justify-between gap-4"><div><div className="flex flex-wrap items-center gap-2"><span className={`status-dot ${urgency}`} /><span className="status-chip">{statusLabel(batch.status)}</span>{batch.is_demo && <span className="demo-chip">Demo</span>}</div><h3 className="mt-4 font-display text-2xl font-bold">{batch.items.map((item) => item.name).join(' + ') || 'Manual entry needed'}</h3><p className="mt-1 text-sm text-[#729082]">{batch.portions} portions · {batch.total_kg.toFixed(1)} kg · {batch.tier.replace('_', ' ')}</p></div><div className="text-right"><span className="eyebrow">Pickup window</span><strong className={`mt-1 block font-display text-3xl ${urgency === 'critical' ? 'text-[#c6513a]' : urgency === 'watch' ? 'text-[#b17719]' : 'text-[#557c16]'}`}>{countdown(remaining)}</strong></div></div><div className="mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-[#e4eadf] pt-4 text-xs font-semibold text-[#729082]"><span>Weather {batch.ambient_temp_c ? `${Math.round(batch.ambient_temp_c)}°C` : '—'} · {batch.weather_source ?? 'unknown'}</span><span>{batch.shelter_id ? 'Shelter matched' : 'Finding a shelter…'}</span></div></article>;
+  const urgency = urgencyOf({ ...batch, remaining_min: remaining });
+  const st = URGENCY[urgency];
+  const pct = batch.safe_window_min ? Math.max(0, Math.min(100, (remaining / batch.safe_window_min) * 100)) : 0;
+  return (
+    <article className="rounded-2xl border border-[#dfe7dc] border-l-4 bg-white p-5 shadow-[0_8px_24px_rgba(24,52,43,0.04)]" style={{ borderLeftColor: urgency === 'critical' ? '#cf5d45' : urgency === 'watch' ? '#d39a2d' : '#83b31c' }}>
+      <div className="flex items-start justify-between gap-4">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className={`h-2.5 w-2.5 rounded-full ${st.bar}`} />
+            <span className={`rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] ${st.chip}`}>{statusLabel(batch.status)}</span>
+            <span className="rounded-full bg-[#d7f5ee] px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#0f766e]">{batch.tier.replace('_', ' ')}</span>
+            {batch.is_demo && <span className="rounded-full bg-[#fff3d0] px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#a76e16]">Demo</span>}
+          </div>
+          <h3 className="mt-4 font-display text-2xl font-bold">{batch.items.map((item) => item.name).join(' + ') || 'Manual entry needed'}</h3>
+          <p className="mt-1 text-sm text-[#729082]">{batch.portions} portions · {batch.total_kg.toFixed(1)} kg · {batch.tier.replace('_', ' ')}</p>
+          <p className="mt-1 text-xs text-[#9aafa3]">{batch.ambient_temp_c != null ? `${Math.round(batch.ambient_temp_c)}°C · ${batch.humidity_pct}% humidity · ${batch.weather_source ?? 'unknown'}` : 'Weather data unavailable'}</p>
+        </div>
+        <div className="shrink-0 text-right">
+          <span className="eyebrow">Pickup window</span>
+          <strong className={`mt-1 block font-display text-3xl ${st.text}`}>{countdown(remaining)}</strong>
+          <span className={`text-[10px] font-bold uppercase tracking-[0.12em] ${st.text}`}>{st.label}</span>
+        </div>
+      </div>
+      <div className="mt-4 h-1.5 w-full overflow-hidden rounded-full bg-[#eef2e8]">
+        <div className={`h-full rounded-full ${st.bar}`} style={{ width: `${pct}%` }} />
+      </div>
+      <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-[#e4eadf] pt-4 text-xs font-semibold text-[#729082]">
+        <span>Weather {batch.ambient_temp_c ? `${Math.round(batch.ambient_temp_c)}°C` : '—'} · {batch.weather_source ?? 'unknown'}</span>
+        <span>{batch.shelter_id ? 'Shelter matched' : 'Finding a shelter…'}</span>
+        <span>{pct.toFixed(0)}% window left</span>
+      </div>
+    </article>
+  );
 }
 
 export default function DashboardPage() {
   const [batches, setBatches] = useState<Batch[]>([]);
   const [stats, setStats] = useState<Stats | null>(null);
+  const [filter, setFilter] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const load = useCallback(async () => {
@@ -39,7 +84,99 @@ export default function DashboardPage() {
     }
   }, []);
   useEffect(() => { void load(); const timer = window.setInterval(() => void load(), 5000); return () => window.clearInterval(timer); }, [load]);
-  return <div className="mx-auto max-w-6xl px-5 pb-16 pt-10 sm:px-8 sm:pt-16"><div className="flex flex-col justify-between gap-6 sm:flex-row sm:items-end"><div><p className="eyebrow">Command center</p><h1 className="mt-3 font-display text-5xl font-bold tracking-[-0.05em]">Food in motion.</h1><p className="mt-3 text-[#729082]">Live view of surplus moving from kitchens to community shelters.</p></div><button onClick={() => void load()} className="self-start rounded-full border border-[#cbd8c9] bg-white px-4 py-2 text-sm font-bold text-[#557267] hover:border-[#18342b]">↻ Refresh</button></div>{stats && <div className="mt-10 grid grid-cols-2 gap-3 lg:grid-cols-4"><Stat label="Meals rescued" value={stats.meals.toLocaleString()} icon="🍽" /><Stat label="Kg diverted" value={stats.kg.toFixed(1)} icon="♻" /><Stat label="CO₂e avoided" value={`${stats.co2e_kg.toFixed(1)} kg`} icon="🌱" /><Stat label="Active batches" value={stats.active_batches.toString()} icon="⌛" /></div>}<div className="mt-12 flex items-center justify-between"><div><p className="eyebrow">Live dispatches</p><h2 className="mt-2 font-display text-3xl font-bold">Today’s rescue queue</h2></div><span className="text-xs font-semibold text-[#729082]">Auto-refresh · 5 sec</span></div>{error && <div className="mt-6 rounded-2xl bg-[#fff0ed] px-5 py-4 text-sm font-semibold text-[#b94e3a]">{error}<button onClick={() => void load()} className="ml-3 underline">Retry</button></div>}{loading ? <div className="mt-6 grid gap-4"><div className="skeleton h-48" /><div className="skeleton h-48" /></div> : batches.length ? <div className="mt-6 grid gap-4 lg:grid-cols-2">{batches.map((batch) => <BatchCard key={batch.id} batch={batch} />)}</div> : <div className="mt-6 rounded-[2rem] border border-dashed border-[#cbd8c9] bg-white p-12 text-center"><div className="text-4xl">🥕</div><h3 className="mt-4 font-display text-2xl font-bold">The queue is clear</h3><p className="mt-2 text-sm text-[#729082]">Newly scanned food will appear here.</p></div>}<p className="mt-8 text-xs leading-5 text-[#729082]">Impact is calculated from delivered batches only. CO₂e uses the configurable 2.5 kg factor. Demo data is labelled.</p></div>;
+
+  const filtered = filter ? batches.filter((b) => b.status === filter) : batches;
+  const counts = batches.reduce<Record<string, number>>((acc, b) => { acc[b.status] = (acc[b.status] ?? 0) + 1; return acc; }, {});
+
+  return (
+    <div className="mx-auto max-w-6xl px-5 pb-16 pt-10 sm:px-8 sm:pt-16">
+      <div className="flex flex-col justify-between gap-6 sm:flex-row sm:items-end">
+        <div>
+          <p className="eyebrow">Command center</p>
+          <h1 className="mt-3 font-display text-5xl font-bold tracking-[-0.05em]">Food in motion.</h1>
+          <p className="mt-3 text-[#729082]">Live view of surplus moving from kitchens to community shelters.</p>
+        </div>
+        <button onClick={() => void load()} className="self-start rounded-full border border-[#cbd8c9] bg-white px-4 py-2 text-sm font-bold text-[#557267] hover:border-[#18342b]">↻ Refresh</button>
+      </div>
+
+      {stats && (
+        <div className="mt-10 grid grid-cols-2 gap-3 lg:grid-cols-4">
+          <Stat label="Meals rescued" value={stats.meals.toLocaleString()} icon="🍽" bg="#e9f4e4" />
+          <Stat label="Kg diverted" value={stats.kg.toFixed(1)} icon="♻" bg="#d7f5ee" />
+          <Stat label="CO₂e avoided" value={`${stats.co2e_kg.toFixed(1)} kg`} icon="🌱" bg="#f3f9d8" />
+          <Stat label="Active batches" value={stats.active_batches.toString()} icon="⌛" bg="#fff3d0" />
+        </div>
+      )}
+
+      <div className="mt-8 grid gap-4 lg:grid-cols-[1fr_2fr]">
+        <aside className="space-y-4">
+          <div className="rounded-2xl border border-[#dfe7dc] bg-[#fffdf5] p-5">
+            <span className="eyebrow">Filter queue</span>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {['', 'pending', 'dispatched', 'claimed', 'picked_up', 'delivered', 'expired', 'at_risk'].map((s) => (
+                <button key={s || 'all'} onClick={() => setFilter(s)} className={`rounded-full px-3 py-1.5 text-xs font-bold transition ${filter === s ? 'bg-[#18342b] text-white' : 'border border-[#dfe7dc] bg-white text-[#4c6a5e] hover:border-[#18342b]'}`}>
+                  {s || 'All'}
+                </button>
+              ))}
+            </div>
+            <div className="mt-4 space-y-2 border-t border-[#efe9d8] pt-4">
+              {Object.entries(counts).map(([s, c]) => (
+                <div key={s} className="flex items-center justify-between text-sm">
+                  <span className="font-semibold text-[#4c6a5e] capitalize">{statusLabel(s)}</span>
+                  <strong className="font-display">{c}</strong>
+                </div>
+              ))}
+              {Object.keys(counts).length === 0 && <p className="text-xs text-[#9aafa3]">No batches yet.</p>}
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-[#dfe7dc] bg-[#d7f5ee] p-5">
+            <span className="eyebrow">How urgency works</span>
+            <p className="mt-2 text-sm leading-6 text-[#0f5f56]">Green = over 50% of the safety window left · Amber = 25–50% · Red = under 25%. High-urgency batches get escalated Telegram alerts.</p>
+          </div>
+
+          <div className="rounded-2xl border border-[#dfe7dc] bg-[#e9f4e4] p-5">
+            <span className="eyebrow">Impact split</span>
+            <div className="mt-3 space-y-2 text-sm">
+              <div className="flex justify-between"><span className="font-semibold text-[#4c6a5e]">Demo meals</span><strong>{stats?.demo.meals.toLocaleString() ?? '—'}</strong></div>
+              <div className="flex justify-between"><span className="font-semibold text-[#4c6a5e]">Real meals</span><strong>{stats?.real.meals.toLocaleString() ?? '—'}</strong></div>
+              <div className="flex justify-between border-t border-[#cfe3c4] pt-2"><span className="font-semibold text-[#4c6a5e]">Delivered batches</span><strong>{stats?.delivered_batches ?? '—'}</strong></div>
+            </div>
+          </div>
+        </aside>
+
+        <div>
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="eyebrow">Live dispatches</p>
+              <h2 className="mt-2 font-display text-3xl font-bold">Today’s rescue queue</h2>
+            </div>
+            <span className="text-xs font-semibold text-[#729082]">Auto-refresh · 5 sec</span>
+          </div>
+          {error && <div className="mt-6 rounded-2xl bg-[#fff0ed] px-5 py-4 text-sm font-semibold text-[#b94e3a]">{error}<button onClick={() => void load()} className="ml-3 underline">Retry</button></div>}
+          {loading ? (
+            <div className="mt-6 grid gap-4"><div className="skeleton h-48" /><div className="skeleton h-48" /></div>
+          ) : filtered.length ? (
+            <div className="mt-6 grid gap-4 lg:grid-cols-2">{filtered.map((batch) => <BatchCard key={batch.id} batch={batch} />)}</div>
+          ) : (
+            <div className="mt-6 rounded-[2rem] border border-dashed border-[#cbd8c9] bg-white p-12 text-center">
+              <div className="text-4xl">🥕</div>
+              <h3 className="mt-4 font-display text-2xl font-bold">The queue is clear</h3>
+              <p className="mt-2 text-sm text-[#729082]">Newly scanned food will appear here.</p>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
 }
 
-function Stat({ label, value, icon }: { label: string; value: string; icon: string }) { return <div className="metric-card"><span className="text-xl">{icon}</span><strong className="mt-3 block font-display text-3xl font-bold">{value}</strong><span className="mt-1 block text-xs font-bold uppercase tracking-[0.1em] text-[#729082]">{label}</span></div>; }
+function Stat({ label, value, icon, bg }: { label: string; value: string; icon: string; bg: string }) {
+  return (
+    <div className="rounded-2xl border border-[#efe9d8] p-5 text-center shadow-sm" style={{ backgroundColor: bg }}>
+      <span className="text-xl">{icon}</span>
+      <strong className="mt-3 block font-display text-3xl font-bold">{value}</strong>
+      <span className="mt-1 block text-xs font-bold uppercase tracking-[0.1em] text-[#729082]">{label}</span>
+    </div>
+  );
+}

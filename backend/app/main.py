@@ -8,8 +8,8 @@ from sqlalchemy import select, update
 
 from ..config import settings
 from ..db import AsyncSessionLocal, Base, engine
-from ..models import Batch
-from ..routers import batches, stats, telegram
+from ..models import Batch, User
+from ..routers import batches, stats, telegram, auth
 
 
 async def expire_batches() -> None:
@@ -55,6 +55,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.include_router(auth.router, prefix="/api/auth", tags=["auth"])
 app.include_router(batches.router, prefix="/api/batches", tags=["batches"])
 app.include_router(stats.router, prefix="/api/stats", tags=["stats"])
 app.include_router(telegram.router, prefix="/api/telegram", tags=["telegram"])

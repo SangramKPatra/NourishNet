@@ -90,3 +90,44 @@ class StatsResponse(BaseModel):
     delivered_batches: int
     demo: dict[str, float | int]
     real: dict[str, float | int]
+
+
+# ---------------------------------------------------------------------------
+# Auth schemas
+# ---------------------------------------------------------------------------
+
+UserRole = Literal["supplier", "distributor"]
+
+
+class UserRegister(BaseModel):
+    email: str = Field(min_length=3, max_length=255)
+    password: str = Field(min_length=8)
+    role: UserRole
+    lat: float | None = None
+    lng: float | None = None
+    radius_km: float = Field(default=10.0, gt=0, le=500)
+
+
+class UserLogin(BaseModel):
+    email: str
+    password: str
+
+
+class UserResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    email: str
+    role: str
+    lat: float | None
+    lng: float | None
+    radius_km: float
+    active: bool
+    created_at: datetime
+
+
+class UserTokenResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    token: str
+    user: UserResponse
