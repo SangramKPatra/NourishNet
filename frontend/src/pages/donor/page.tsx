@@ -62,7 +62,7 @@ export default function DonorPage() {
     try {
       const result = await scanBatch(form);
       setScan(result);
-      setItems(result.items);
+      setItems(result.items.length ? result.items : [{ name: '', approx_kg: 0.1 }]);
       setPortions(result.portions);
       setPhase('review');
     } catch (err) {
@@ -72,7 +72,9 @@ export default function DonorPage() {
   };
 
   const confirm = async () => {
-    if (!scan || !items.length || portions < 1) return setError('Add at least one food item and portion count.');
+    if (!scan || !items.length || items.some((item) => !item.name.trim()) || portions < 1) {
+      return setError('Add a food name and portion count.');
+    }
     setError('');
     setPhase('confirming');
     try {
@@ -186,7 +188,15 @@ export default function DonorPage() {
             <div className="grid gap-5 sm:grid-cols-3">
               <div className="metric-card sm:col-span-2">
                 <span className="eyebrow">Visible food</span>
-                <div className="mt-5 space-y-3">{items.map((item, index) => <div className="flex gap-2" key={`${item.name}-${index}`}><input value={item.name} onChange={(e) => updateItem(index, 'name', e.target.value)} className="field flex-1" /><input type="number" min="0.1" step="0.1" value={item.approx_kg} onChange={(e) => updateItem(index, 'approx_kg', e.target.value)} className="field w-24" /><span className="self-center text-xs font-bold text-[#729082]">kg</span></div>)}</div>
+                {scan?.needs_manual_entry && <p className="mt-3 rounded-xl bg-[#fff3d0] px-4 py-3 text-sm font-semibold text-[#765b1d]">We could not identify the food automatically. Add the name and approximate weight below.</p>}
+                <div className="mt-5 space-y-3">
+                  {items.map((item, index) => <div className="flex gap-2" key={`${item.name}-${index}`}>
+                    <input aria-label={`Food item ${index + 1} name`} placeholder="Food name" value={item.name} onChange={(e) => updateItem(index, 'name', e.target.value)} className="field flex-1" />
+                    <input aria-label={`Food item ${index + 1} weight`} type="number" min="0.1" step="0.1" value={item.approx_kg} onChange={(e) => updateItem(index, 'approx_kg', e.target.value)} className="field w-24" />
+                    <span className="self-center text-xs font-bold text-[#729082]">kg</span>
+                  </div>)}
+                  <button type="button" onClick={() => setItems((current) => [...current, { name: '', approx_kg: 0.1 }])} className="text-sm font-bold text-[#557c16] hover:text-[#18342b]">+ Add another food item</button>
+                </div>
               </div>
               <div className="metric-card"><span className="eyebrow">Portions</span><input type="number" min="1" value={portions} onChange={(e) => setPortions(Number(e.target.value))} className="mt-5 w-full border-0 bg-transparent font-display text-5xl font-bold outline-none" /><p className="mt-2 text-sm text-[#729082]">estimated meals</p></div>
             </div>

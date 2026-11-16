@@ -1,15 +1,19 @@
 import sys
 import os
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-from datetime import datetime
+from datetime import datetime, timedelta
 import uuid
 
-from config import settings
+from backend.config import settings
 
-engine = create_engine(settings.DATABASE_URL, echo=False)
+def _sync_url(url: str) -> str:
+    """derive a sync-driver URL from the async one (asyncpg -> psycopg2)"""
+    return url.replace("+asyncpg", "+psycopg2", 1) if "+asyncpg" in url else url
+
+engine = create_engine(_sync_url(settings.DATABASE_URL), echo=False)
 SessionLocal = sessionmaker(bind=engine)
 
 def get_session():
@@ -21,13 +25,13 @@ def get_session():
 
 def seed():
     # Import models after engine creation to avoid circular imports
-    from models import Donor, Shelter, Volunteer, Batch, DispatchLog, Base
+    from .models import Donor, Shelter, Volunteer, Batch, DispatchLog, Base
     
-    # Drop and recreate tables (idempotent for dev)
-    Base.metadata.drop_all(engine)
+    # Create missing tables (never drop — Supabase owns the schema now)
     Base.metadata.create_all(engine)
 
-    with get_session() as session:
+    session = SessionLocal()
+    try:
         # Demo donor
         demo_donor = Donor(
             id=uuid.uuid4(),
@@ -38,6 +42,7 @@ def seed():
             token="demo-donor-token"
         )
         session.add(demo_donor)
+        session.flush()  # ensure donor row exists before batch FK reference
 
         # Demo shelters
         shelter_coords = [
@@ -106,7 +111,9 @@ def seed():
         session.add(log)
 
         session.commit()
-        print("✅ Phase 1 – Data model tables created and demo seed data loaded (idempotent)")
+    finally:
+        session.close()
+    print("✅ Phase 1 – Data model tables created and demo seed data loaded (idempotent)")
 
 if __name__ == "__main__":
     seed()

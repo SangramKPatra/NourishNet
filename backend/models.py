@@ -1,7 +1,7 @@
 from datetime import datetime
 import uuid
 
-from sqlalchemy import Boolean, Column, DateTime, Float, Integer, JSON, String
+from sqlalchemy import Boolean, Column, DateTime, Float, ForeignKey, Integer, JSON, String
 from sqlalchemy.types import TypeDecorator, CHAR
 from sqlalchemy.dialects.postgresql import UUID as PGUUID
 
@@ -71,7 +71,7 @@ class Batch(Base):
     __tablename__ = "batches"
 
     id = Column(GUID(), primary_key=True, default=uuid.uuid4)
-    donor_id = Column(GUID(), nullable=False, index=True)
+    donor_id = Column(GUID(), ForeignKey("donors.id"), nullable=False, index=True)
     items = Column(JSON, nullable=False)
     total_kg = Column(Float, nullable=False)
     portions = Column(Integer, nullable=False)
@@ -83,8 +83,8 @@ class Batch(Base):
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     expires_at = Column(DateTime)
     status = Column(String, nullable=False, default="draft", index=True)
-    shelter_id = Column(GUID())
-    volunteer_id = Column(GUID())
+    shelter_id = Column(GUID(), ForeignKey("shelters.id"))
+    volunteer_id = Column(GUID(), ForeignKey("volunteers.id"))
     lat = Column(Float)
     lng = Column(Float)
     is_demo = Column(Boolean, default=False, nullable=False)
@@ -94,7 +94,7 @@ class DispatchLog(Base):
     __tablename__ = "dispatch_logs"
 
     id = Column(GUID(), primary_key=True, default=uuid.uuid4)
-    batch_id = Column(GUID(), nullable=False, index=True)
+    batch_id = Column(GUID(), ForeignKey("batches.id"), nullable=False, index=True)
     channel = Column(String)
     payload = Column(JSON)
     status = Column(String)
@@ -121,7 +121,7 @@ class UserToken(Base):
     __tablename__ = "user_tokens"
 
     id = Column(GUID(), primary_key=True, default=uuid.uuid4)
-    user_id = Column(GUID(), nullable=False, index=True)
+    user_id = Column(GUID(), ForeignKey("users.id"), nullable=False, index=True)
     token = Column(String, unique=True, nullable=False, index=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     expires_at = Column(DateTime, nullable=False)
