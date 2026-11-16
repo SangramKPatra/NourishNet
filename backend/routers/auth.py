@@ -1,7 +1,7 @@
 """Authentication routes: sign-up, sign-in, me, logout."""
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-
+from sqlalchemy.orm import Session
 from ..db import get_session
 from ..models import User
 from ..schemas import UserRegister, UserLogin, UserResponse, UserTokenResponse

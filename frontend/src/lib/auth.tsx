@@ -61,33 +61,75 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    if (!token) {
-      setReady(true);
-      return;
+    // Initialize from localStorage on mount
+    const storedToken = localStorage.getItem(TOKEN_KEY);
+    const storedUser = localStorage.getItem(USER_KEY);
+
+    if (storedToken && storedUser) {
+      const parsedUser = parseJson<AuthUser>(storedUser);
+      if (parsedUser) {
+        setUser(parsedUser);
+        setToken(storedToken);
+      }
     }
+    setReady(true);
+  }, []);
+
+  useEffect(() => {
+    // Listen for auth state changes - check if token is still valid
     let cancelled = false;
-    fetch('/api/auth/me', { headers: { Authorization: `Bearer ${token}` } })
-      .then(async (res) => {
-        if (!res.ok) throw new Error('session expired');
-        return (await res.json()) as AuthUser;
-      })
-      .then((next) => {
-        if (cancelled) return;
-        setUser(next);
-        localStorage.setItem(USER_KEY, JSON.stringify(next));
-      })
-      .catch(() => {
-        if (cancelled) return;
-        setUser(null);
-        setToken(null);
-        localStorage.removeItem(TOKEN_KEY);
-        localStorage.removeItem(USER_KEY);
-      })
-      .finally(() => {
+
+    const checkAuth = async () => {
+      if (!token) {
+        if (!cancelled) {
+          setUser(null);
+          setToken(null);
+          localStorage.removeItem(TOKEN_KEY);
+          localStorage.removeItem(USER_KEY);
+          setReady(true);
+        }
+        return;
+      }
+
+      try {
+        const res = await fetch('/api/auth/me', {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!res.ok) {
+          // Token expired/invalid
+          if (!cancelled) {
+            setUser(null);
+            setToken(null);
+            localStorage.removeItem(TOKEN_KEY);
+            localStorage.removeItem(USER_KEY);
+          }
+        } else {
+          const data = await res.json() as AuthUser;
+          if (!cancelled) {
+            setUser(data);
+            localStorage.setItem(USER_KEY, JSON.stringify(data));
+          }
+        }
+      } catch (err) {
+        console.error('Auth check failed:', err);
+        if (!cancelled) {
+          setUser(null);
+          setToken(null);
+          localStorage.removeItem(TOKEN_KEY);
+          localStorage.removeItem(USER_KEY);
+        }
+      } finally {
         if (!cancelled) setReady(true);
-      });
+      }
+    };
+
+    checkAuth();
+
+    // Periodic auth check
+    const interval = setInterval(checkAuth, 300000); // 5 minutes
     return () => {
       cancelled = true;
+      clearInterval(interval);
     };
   }, [token]);
 
@@ -104,8 +146,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, password }),
     });
-    if (!res.ok) throw new Error(await readError(res));
-    const data = (await res.json()) as { token: string; user: AuthUser };
+
+    if (!res.ok) {
+      const errorData = await res.json();
+      throw new Error(errorData.detail || `Login failed (${res.status})`);
+    }
+
+    const data = await res.json() as { token: string; user: UserResponse };
     persist(data.user, data.token);
     return data.user;
   };
@@ -123,17 +170,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         radius_km: input.radius_km,
       }),
     });
-    if (!res.ok) throw new Error(await readError(res));
+
+    if (!res.ok) {
+      const errorData = await res.json();
+      throw new Error(errorData.detail || `Signup failed (${res.status})`);
+    }
+
+    // After signup, auto-signin
     return signIn(input.email, input.password);
   };
 
   const signOut = async () => {
-    if (token) {
-      await fetch('/api/auth/logout', {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
-      }).catch(() => undefined);
-    }
+    await fetch('/api/auth/logout', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+    }).catch(() => undefined);
+
     setUser(null);
     setToken(null);
     localStorage.removeItem(TOKEN_KEY);

@@ -1,7 +1,8 @@
-# Phase 4 — Vision extraction using Gemini 2.5 Flash
+# Phase 4 — Vision extraction using Gemini Flash
+import asyncio
 import io
-from PIL import Image
 from typing import Optional
+from PIL import Image
 from google import genai
 from google.genai import types
 from pydantic import ValidationError
@@ -98,15 +99,29 @@ async def run_vision(image_file) -> Optional[VisionResult]:
             }
         )
         
-        # Call Gemini with timeout
-        response = client.models.generate_content(
-            model="gemini-2.5-flash",
-            contents=[
-                types.Part.from_text(text=SYSTEM_PROMPT),
-                types.Part.from_bytes(data=resized_bytes, mime_type="image/jpeg")
-            ],
-            config=response_schema,
-        )
+        # Call Gemini with timeout and transient-error retry
+        last_exc: Optional[Exception] = None
+        response = None
+        for attempt in range(3):
+            try:
+                response = await asyncio.wait_for(
+                    asyncio.to_thread(
+                        client.models.generate_content,
+                        model=settings.VISION_MODEL,
+                        contents=[
+                            types.Part.from_text(text=SYSTEM_PROMPT),
+                            types.Part.from_bytes(data=resized_bytes, mime_type="image/jpeg"),
+                        ],
+                        config=response_schema,
+                    ),
+                    timeout=15,
+                )
+                break
+            except Exception as exc:
+                last_exc = exc
+                await asyncio.sleep(2 ** attempt)
+        if response is None:
+            raise last_exc or RuntimeError("Vision call failed")
         
         # Parse and validate with Pydantic
         import json

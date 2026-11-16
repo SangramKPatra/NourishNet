@@ -11,9 +11,10 @@ class TierEnum(str, Enum):
 
 class Settings(BaseSettings):
     GEMINI_API_KEY: str = ""
+    VISION_MODEL: str = "gemini-3.6-flash"
     TELEGRAM_BOT_TOKEN: str = ""
     TELEGRAM_CHAT_ID: str = ""
-    DATABASE_URL: str = "sqlite+aiosqlite:///./dev.db"
+    DATABASE_URL: str = "postgresql+asyncpg://postgres:YOUR_SUPABASE_PWD@aws-aws-pool-1.go.supabase.co:5452/postgres"
     PUBLIC_BASE_URL: str = "http://localhost:5173"
     STORE_IMAGES: bool = False
     MIN_WINDOW: int = 30
@@ -26,6 +27,11 @@ class Settings(BaseSettings):
         "MEDIUM_MOISTURE": 360,
         "DRY": 480,
     }
+    # Supabase configuration
+    SUPABASE_URL: str = "https://pyxwimmoqlcqxnnfskwa.supabase.co"
+    SUPABASE_ANON_KEY: str = ""
+    SUPABASE_PUBLISHABLE_KEY: str = ""
+    MODEL_CONFIG: str = "model_config"
 
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8", "extra": "ignore"}
 
