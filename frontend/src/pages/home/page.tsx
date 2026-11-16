@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { getStats, listBatches, type Batch, type Stats } from '../../lib/api';
+import FoodBackdrop from '../../components/FoodBackdrop';
 
 const SDGS = [
   { n: 2, label: 'Zero Hunger', color: '#e5243b', bg: '#ffe9ea' },
@@ -61,6 +62,7 @@ export default function HomePage() {
 
   return (
     <div className="relative overflow-hidden bg-[#f7f7f2]">
+      <FoodBackdrop opacity={0.5} />
       <div className="absolute -top-24 -right-24 h-72 w-72 rounded-full bg-[#00bfa5] opacity-15 blur-3xl" />
       <div className="absolute top-1/3 -left-32 h-64 w-64 rounded-full bg-[#93c51b] opacity-10 blur-3xl" />
       <div className="absolute bottom-0 right-1/4 h-56 w-56 rounded-full bg-[#d9f06d] opacity-20 blur-3xl" />
@@ -68,7 +70,7 @@ export default function HomePage() {
       {/* ── Above the fold: mission, objective, SDGs, what we do ── */}
       <section className="relative mx-auto flex min-h-[calc(100vh-72px)] max-w-6xl flex-col justify-center px-5 py-10 sm:px-8">
         <div className="mb-4 inline-flex w-fit items-center gap-2 rounded-full border border-[#0f766e]/30 bg-[#d7f5ee] px-3 py-1.5 text-xs font-bold uppercase tracking-[0.14em] text-[#0f766e] shadow-sm">
-          <span className="h-2 w-2 rounded-full bg-[#00bfa5]" /> Food rescue infrastructure
+          <span className="h-2 w-2 rounded-full bg-[#ffd93d]" /> Food rescue infrastructure
         </div>
 
         <h1 className="max-w-4xl font-display text-4xl font-bold leading-[1.02] tracking-[-0.05em] text-[#18342b] sm:text-6xl">
@@ -89,8 +91,8 @@ export default function HomePage() {
 
         <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
           {WHAT.map((w) => (
-            <div key={w.t} className="rounded-2xl border border-[#dfe7dc] p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md" style={{ backgroundColor: w.bg }}>
-              <span className="text-2xl">{w.icon}</span>
+            <div key={w.t} className="rounded-2xl border border-[#dfe7dc] p-4 shadow-sm transition duration-300 hover:-translate-y-1 hover:-rotate-1 hover:shadow-lg" style={{ backgroundColor: w.bg }}>
+              <span className="text-2xl transition-transform duration-300 hover:scale-125">{w.icon}</span>
               <h3 className="mt-2 font-display text-sm font-bold text-[#18342b]">{w.t}</h3>
               <p className="mt-0.5 text-xs text-[#4c6a5e]">{w.d}</p>
             </div>
@@ -98,8 +100,8 @@ export default function HomePage() {
         </div>
 
         <div className="mt-7 flex flex-wrap gap-3">
-          <Link to="/auth" className="rounded-full bg-[#18342b] px-6 py-3 text-sm font-bold text-white transition hover:bg-[#0f766e]">Sign up to donate</Link>
-          <Link to="/donor" className="rounded-full border border-[#dfe7dc] bg-[#fffdf5] px-6 py-3 text-sm font-bold text-[#18342b] transition hover:bg-[#d9f06d]">Try demo donor</Link>
+          <Link to="/auth?mode=signup" className="btn-pop btn-dark rounded-full px-6 py-3 text-sm font-bold">Sign up to donate</Link>
+          <Link to="/donor" className="btn-pop rounded-full border border-[#dfe7dc] bg-[#fffdf5] px-6 py-3 text-sm font-bold text-[#18342b] transition hover:bg-[#d9f06d]">Try demo donor</Link>
         </div>
       </section>
 
@@ -209,7 +211,7 @@ export default function HomePage() {
           </div>
 
           <div className="mt-8 text-center">
-            <Link to="/dashboard" className="rounded-full bg-[#18342b] px-6 py-3 text-sm font-bold text-white transition hover:bg-[#0f766e]">Open full dashboard →</Link>
+            <Link to="/dashboard" className="btn-pop btn-dark rounded-full px-6 py-3 text-sm font-bold">Open full dashboard →</Link>
           </div>
         </div>
       </section>

@@ -19,15 +19,18 @@ async def signup(
     session=Depends(get_session),
 ):
     """Register as a new food supplier or distributor."""
-    user = await register_user(
-        session,
-        email=payload.email,
-        password=payload.password,
-        role=payload.role,
-        lat=payload.lat,
-        lng=payload.lng,
-        radius_km=payload.radius_km,
-    )
+    try:
+        user = await register_user(
+            session,
+            email=payload.email,
+            password=payload.password,
+            role=payload.role,
+            lat=payload.lat,
+            lng=payload.lng,
+            radius_km=payload.radius_km,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc))
     token_record = await login_user(session, payload.email, payload.password)
     if token_record is None:
         raise HTTPException(status_code=500, detail="Could not create session")

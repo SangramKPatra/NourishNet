@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { getStats, listBatches, type Batch, type Stats } from '../../lib/api';
+import FoodBackdrop from '../../components/FoodBackdrop';
 
 function countdown(minutes: number) {
   if (minutes <= 0) return 'Expired';
@@ -89,14 +90,16 @@ export default function DashboardPage() {
   const counts = batches.reduce<Record<string, number>>((acc, b) => { acc[b.status] = (acc[b.status] ?? 0) + 1; return acc; }, {});
 
   return (
-    <div className="mx-auto max-w-6xl px-5 pb-16 pt-10 sm:px-8 sm:pt-16">
+    <div className="relative overflow-hidden">
+      <FoodBackdrop opacity={0.3} />
+      <div className="relative mx-auto max-w-6xl px-5 pb-16 pt-10 sm:px-8 sm:pt-16">
       <div className="flex flex-col justify-between gap-6 sm:flex-row sm:items-end">
         <div>
           <p className="eyebrow">Command center</p>
-          <h1 className="mt-3 font-display text-5xl font-bold tracking-[-0.05em]">Food in motion.</h1>
+          <h1 className="mt-3 font-display text-5xl font-bold tracking-[-0.05em]">Food in <span className="grad-text">motion.</span></h1>
           <p className="mt-3 text-[#729082]">Live view of surplus moving from kitchens to community shelters.</p>
         </div>
-        <button onClick={() => void load()} className="self-start rounded-full border border-[#cbd8c9] bg-white px-4 py-2 text-sm font-bold text-[#557267] hover:border-[#18342b]">↻ Refresh</button>
+        <button onClick={() => void load()} className="btn-pop self-start rounded-full border border-[#cbd8c9] bg-white px-4 py-2 text-sm font-bold text-[#557267] hover:border-[#18342b]">↻ Refresh</button>
       </div>
 
       {stats && (
@@ -166,6 +169,7 @@ export default function DashboardPage() {
             </div>
           )}
         </div>
+      </div>
       </div>
     </div>
   );

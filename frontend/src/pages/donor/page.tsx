@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { confirmBatch, listBatches, scanBatch, type Batch, type FoodItem, type ScanResponse } from '../../lib/api';
+import FoodBackdrop from '../../components/FoodBackdrop';
 
 const FALLBACK_LOCATION = { lat: '37.7749', lng: '-122.4194' };
 
@@ -88,7 +89,9 @@ export default function DonorPage() {
   };
 
   return (
-    <div className="mx-auto max-w-6xl px-5 pb-16 pt-10 sm:px-8 sm:pt-14">
+    <div className="relative overflow-hidden">
+      <FoodBackdrop opacity={0.35} />
+      <div className="relative mx-auto max-w-6xl px-5 pb-16 pt-10 sm:px-8 sm:pt-14">
       {phase === 'ready' || phase === 'scanning' ? (
         <section className="grid items-start gap-10 lg:grid-cols-[1.1fr_0.9fr]">
           <div>
@@ -115,8 +118,8 @@ export default function DonorPage() {
                     <h2 className="font-display text-3xl font-bold">{imageFile ? 'Photo ready' : 'Scan surplus food'}</h2>
                     <p className="mx-auto mt-3 max-w-xs text-sm leading-6 text-white/70">{imageFile ? imageFile.name : 'Show us what is left in the tray. We’ll do the sorting.'}</p>
                     <input ref={inputRef} hidden type="file" accept="image/*" capture="environment" onChange={(e) => handleImageChange(e.target.files?.[0])} />
-                    <button onClick={() => inputRef.current?.click()} className="mt-7 rounded-full bg-white px-6 py-3 font-bold text-[#18342b] transition hover:bg-[#d9f06d]">{imageFile ? 'Retake photo' : 'Take a photo'}</button>
-                    {imageFile && <button onClick={scanImage} disabled={phase === 'scanning'} className="ml-2 rounded-full bg-[#d9f06d] px-6 py-3 font-bold text-[#18342b] transition hover:bg-white disabled:opacity-60">{phase === 'scanning' ? 'Reading tray…' : 'Analyze food →'}</button>}
+                    <button onClick={() => inputRef.current?.click()} className="btn-pop btn-yellow rounded-full px-6 py-3 font-bold">{imageFile ? 'Retake photo' : 'Take a photo'}</button>
+                    {imageFile && <button onClick={scanImage} disabled={phase === 'scanning'} className="btn-pop ml-2 rounded-full bg-[#d9f06d] px-6 py-3 font-bold text-[#18342b] transition hover:bg-white disabled:opacity-60">{phase === 'scanning' ? 'Reading tray…' : 'Analyze food →'}</button>}
                   </div>
                   <div className="absolute bottom-5 left-5 right-5 flex justify-between text-xs font-semibold text-white/60"><span>⌖ {location.lat}, {location.lng}</span><span>Private by default</span></div>
                 </div>
@@ -194,7 +197,7 @@ export default function DonorPage() {
             </div>
             {error && <p className="mt-5 rounded-xl bg-[#fff0ed] px-4 py-3 text-sm font-semibold text-[#b94e3a]">{error}</p>}
             <div className="mt-6 flex gap-3">
-              <button onClick={confirm} disabled={phase === 'confirming'} className="rounded-full bg-[#18342b] px-6 py-3 font-bold text-white transition hover:bg-[#799d13] disabled:opacity-60">{phase === 'confirming' ? 'Sending alert…' : 'Confirm & dispatch pickup alert'}</button>
+              <button onClick={confirm} disabled={phase === 'confirming'} className="btn-pop btn-dark rounded-full px-6 py-3 font-bold disabled:opacity-60">{phase === 'confirming' ? 'Sending alert…' : 'Confirm & dispatch pickup alert'}</button>
               <button onClick={() => setPhase('ready')} className="rounded-full border border-[#dfe7dc] bg-white px-6 py-3 font-bold text-[#729082] transition hover:border-[#18342b]">Back to photo</button>
             </div>
           </div>
@@ -225,10 +228,11 @@ export default function DonorPage() {
           <h1 className="mt-3 font-display text-5xl font-bold tracking-[-0.04em]">You kept {scan?.portions ?? 0} meals in the rescue loop.</h1>
           <p className="mx-auto mt-5 max-w-lg leading-7 text-[#729082]">Nearby volunteers have the details. The batch should be collected within the conservative window below.</p>
           <div className="mx-auto mt-8 rounded-[2rem] bg-[#18342b] p-8 text-white"><span className="text-sm font-bold uppercase tracking-[0.14em] text-[#d9f06d]">Collect within</span><strong className="mt-2 block font-display text-6xl">{scan ? formatMinutes(scan.safe_window_min) : ''}</strong></div>
-          <div className="mt-6 flex justify-center gap-3"><button onClick={() => { setImageFile(null); setPreview(''); setScan(null); setPhase('ready'); }} className="rounded-full border border-[#cbd8c9] bg-white px-5 py-3 font-bold">Scan another</button><button onClick={() => navigate('/dashboard')} className="rounded-full bg-[#18342b] px-5 py-3 font-bold text-white transition hover:bg-[#0f766e]">Open dashboard →</button></div>
+          <div className="mt-6 flex justify-center gap-3"><button onClick={() => { setImageFile(null); setPreview(''); setScan(null); setPhase('ready'); }} className="rounded-full border border-[#cbd8c9] bg-white px-5 py-3 font-bold">Scan another</button><button onClick={() => navigate('/dashboard')} className="btn-pop btn-dark rounded-full px-5 py-3 font-bold">Open dashboard →</button></div>
         </section>
       )}
-      {phase !== 'review' && phase !== 'confirming' && <div className="mx-auto mt-8 max-w-xl space-y-3"><label className="block text-xs font-bold uppercase tracking-[0.14em] text-[#729082]">Donor access token</label><input value={donorToken} onChange={(e) => setDonorToken(e.target.value)} className="field" placeholder="demo-donor-token" />{error && <p className="rounded-xl bg-[#fff0ed] px-4 py-3 text-sm font-semibold text-[#b94e3a]">{error}</p>}</div>}
+      {phase !== 'review' && phase !== 'confirming' && <div className="relative mx-auto mt-8 max-w-xl space-y-3"><label className="block text-xs font-bold uppercase tracking-[0.14em] text-[#729082]">Donor access token</label><input value={donorToken} onChange={(e) => setDonorToken(e.target.value)} className="field" placeholder="demo-donor-token" />{error && <p className="rounded-xl bg-[#fff0ed] px-4 py-3 text-sm font-semibold text-[#b94e3a]">{error}</p>}</div>}
+      </div>
     </div>
   );
 }
