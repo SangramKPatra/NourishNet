@@ -26,7 +26,7 @@ NourishNet turns one photo of leftover food into a safety-timed pickup alert sen
 ## 4. Core workflow
 
 1. **Scan.** Donor opens the mobile web app, takes one photo. GPS captured in the background.
-2. **Analyze.** Gemini extracts items, estimated kg, portions, perishability tier. Open-Meteo returns ambient temperature and humidity. Safety engine computes the collection window.
+2. **Analyze.** The vision model extracts items, estimated kg, portions, perishability tier. Open-Meteo returns ambient temperature and humidity. Safety engine computes the collection window.
 3. **Confirm.** Donor reviews the draft and taps once (can edit quantities if wrong).
 4. **Dispatch.** System matches shelters, alerts volunteers on Telegram with food summary, countdown, and a Google Maps link.
 5. **Fulfill.** Volunteer taps **Claim Pickup**, collects, delivers to the shelter, taps **Delivered**.

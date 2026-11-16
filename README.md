@@ -41,7 +41,7 @@ NourishNet bridges the gap between surplus food and those in need using automate
 * Python 3.10+
 * Uvicorn
 * Telegram/WhatsApp API Keys
-* Vision-LLM API Key (e.g., OpenAI/Gemini)
+* NVIDIA NIM API Key (`NVIDIA_API_KEY`) and endpoint (`NVIDIA_INVOKE_URL`)
 
 ### Credits
 1. Sangram Keshari Patra

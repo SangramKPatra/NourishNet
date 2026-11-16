@@ -43,18 +43,6 @@ function parseJson<T>(value: string | null): T | null {
   }
 }
 
-async function readError(res: Response): Promise<string> {
-  let detail = await res.text();
-  try {
-    const parsed = JSON.parse(detail) as { detail?: string | { msg?: string }[] };
-    if (typeof parsed.detail === 'string') detail = parsed.detail;
-    else if (Array.isArray(parsed.detail)) detail = parsed.detail.map((item) => item.msg ?? '').join(', ');
-  } catch {
-    // keep raw text
-  }
-  return detail || `Request failed (${res.status})`;
-}
-
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(() => parseJson<AuthUser>(localStorage.getItem(USER_KEY)));
   const [token, setToken] = useState<string | null>(() => localStorage.getItem(TOKEN_KEY));

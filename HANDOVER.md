@@ -22,7 +22,7 @@
 - Tests: `backend/tests/test_weather.py` (8 checks, all passing)
 
 **Phase 4 — Vision extraction**
-- Gemini 2.5 Flash integration for food photo analysis
+- NVIDIA NIM (`google/gemma-4-31b-it`) integration for food photo analysis
 - Image resizing to 1280px max dimension
 - Structured JSON response with Pydantic validation
 - Weight sanity checks (reject negative or >100 kg)
@@ -168,7 +168,9 @@ Copy `.env.example` to `.env` and configure:
 
 ```env
 # Backend (.env in repository root or backend/)
-GEMINI_API_KEY=your_key_here
+NVIDIA_API_KEY=your_key_here
+NVIDIA_INVOKE_URL=https://integrate.api.nvidia.com/v1/chat/completions
+VISION_MODEL=google/gemma-4-31b-it
 TELEGRAM_BOT_TOKEN=your_token_here
 TELEGRAM_CHAT_ID=your_chat_id
 DATABASE_URL=sqlite+aiosqlite:///./dev.db
@@ -195,7 +197,7 @@ NourishNet/
 │   ├── services/
 │   │   ├── safety.py        # Safe window, urgency calculations
 │   │   ├── weather.py       # Open-Meteo integration
-│   │   ├── vision.py        # Gemini Vision API
+│   │   ├── vision.py        # NVIDIA NIM vision API
 │   │   └── dispatch.py      # Shelter matching
 │   ├── tests/               # 31 passing tests
 │   ├── models.py            # SQLAlchemy models
@@ -310,7 +312,7 @@ npm run build  # TypeScript and Vite build check
 - **Repository conventions**: `AGENT.md`
 - **API docs**: http://localhost:8000/docs (when running)
 - **Open-Meteo API**: https://open-meteo.com/en/docs
-- **Gemini API**: https://ai.google.dev/gemini-api/docs
+- **NVIDIA NIM API**: https://integrate.api.nvidia.com/v1/chat/completions
 
 ---
 

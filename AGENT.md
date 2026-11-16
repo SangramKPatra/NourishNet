@@ -7,7 +7,7 @@ You are building and maintaining **NourishNet**, a hyper-local food rescue and d
 1. **Zero friction for the donor.** Donor flow must stay: open page → take photo → one tap confirm. Never add required form fields to the donor flow.
 2. **Safety first, honestly framed.** The shelf-life engine is a conservative rule-based estimate, not a medical guarantee. Never use wording like "guaranteed safe" in UI or copy. When uncertain, shorten the window.
 3. **Push, not pull.** Every confirmed batch must trigger dispatch automatically. No listing should sit waiting for someone to browse.
-4. **Deterministic core, AI at the edges.** Gemini only does image → structured JSON. Safe-window math, urgency, and impact metrics are plain deterministic Python, unit-tested.
+4. **Deterministic core, AI at the edges.** The vision model only does image → structured JSON. Safe-window math, urgency, and impact metrics are plain deterministic Python, unit-tested.
 5. **Demo-reliable.** The 3-minute demo must work on bad Wi-Fi: have a fallback path (see Fallbacks).
 
 ## Tech stack
@@ -16,7 +16,7 @@ You are building and maintaining **NourishNet**, a hyper-local food rescue and d
 | --- | --- |
 | Frontend | Vite 5 + React 18, react-router-dom, TypeScript, Tailwind CSS, mobile-first PWA |
 | Backend | FastAPI, Python 3.11+, async, Pydantic v2 |
-| Vision AI | Gemini 2.5 Flash via `google-genai` SDK, strict JSON schema output |
+| Vision AI | NVIDIA NIM `google/gemma-4-31b-it` via Chat Completions API, strict JSON output |
 | Weather | Open-Meteo API (no auth) |
 | Database | PostgreSQL (Supabase) via SQLAlchemy (async); SQLite acceptable for local dev |
 | Notifications | Telegram Bot API via `httpx` |
@@ -31,13 +31,13 @@ nourishnet/
 │   │   ├── config.py          # Settings from env (pydantic-settings)
 │   │   ├── db.py              # Engine, session, Base
 │   │   ├── models.py          # SQLAlchemy models
-│   │   ├── schemas.py         # Pydantic request/response + Gemini schema
+│   │   ├── schemas.py         # Pydantic request/response + vision schema
 │   │   ├── routers/
 │   │   │   ├── batches.py     # scan, confirm, claim, deliver, list
 │   │   │   ├── stats.py       # impact metrics
 │   │   │   └── telegram.py    # webhook for Claim button
 │   │   └── services/
-│   │       ├── vision.py      # Gemini call + validation + fallback
+│   │       ├── vision.py      # NVIDIA NIM call + validation + fallback
 │   │       ├── weather.py     # Open-Meteo client + cache
 │   │       ├── safety.py      # shelf-life engine (pure functions)
 │   │       ├── dispatch.py    # shelter matching, urgency, alerts
@@ -90,11 +90,11 @@ urgency = travel_min / remaining_window_min
 - Keep services as pure and small as possible; routers only orchestrate.
 - All timestamps stored UTC, displayed in the user's local time.
 - Never log full images or secrets. Images are processed in memory and discarded unless `STORE_IMAGES=true`.
-- Env vars: `GEMINI_API_KEY`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`, `DATABASE_URL`, `PUBLIC_BASE_URL`. Never commit real values.
+- Env vars: `NVIDIA_API_KEY`, `NVIDIA_INVOKE_URL`, `VISION_MODEL`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`, `DATABASE_URL`, `PUBLIC_BASE_URL`. Never commit real values.
 
 ## Fallbacks (must exist)
 
-- **Gemini fails/times out (>8 s):** return a clearly labeled manual-entry draft (editable items list) instead of an error.
+- **Vision API fails/times out (>8 s):** return a clearly labeled manual-entry draft (editable items list) instead of an error.
 - **Open-Meteo fails:** use last cached reading for that ~10 km grid; if none, assume 30°C (conservative) and flag `weather_source: "fallback"`.
 - **Telegram fails:** retry 3× with backoff, then surface the batch on the dashboard with a "dispatch failed" badge.
 - **No volunteer claims:** after 50% of window elapses, re-alert with escalation; at 75%, mark batch `at_risk` on the dashboard.
@@ -102,8 +102,8 @@ urgency = travel_min / remaining_window_min
 ## Testing requirements
 
 - Unit tests for `safety.py` (boundary temps: ≤25°C, 32°C, 45°C, floor), `dispatch.py` (ranking, capacity, radius), `impact.py`.
-- Contract test: Gemini response parser rejects malformed JSON and negative weights.
-- At least one end-to-end test: mock Gemini + Open-Meteo + Telegram, POST a scan, confirm, claim, deliver, assert stats.
+- Contract test: NVIDIA NIM response parser rejects malformed JSON and negative weights.
+- At least one end-to-end test: mock NVIDIA NIM + Open-Meteo + Telegram, POST a scan, confirm, claim, deliver, assert stats.
 
 ## Definition of done (per feature)
 

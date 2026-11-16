@@ -3,17 +3,17 @@
 
 ## Role and goal
 
-You are a senior full-stack engineer. Build the **NourishNet MVP**: a mobile-first web app where a donor photographs surplus cooked food, Gemini extracts the items, Open-Meteo weather drives a deterministic safe-collection window, and a Telegram bot pushes a claimable pickup alert to volunteers. A live dashboard shows countdowns and SDG impact. Follow `agent.md` for conventions and `product.md` for scope. Do not build anything out of scope.
+You are a senior full-stack engineer. Build the **NourishNet MVP**: a mobile-first web app where a donor photographs surplus cooked food, the vision model extracts the items, Open-Meteo weather drives a deterministic safe-collection window, and a Telegram bot pushes a claimable pickup alert to volunteers. A live dashboard shows countdowns and SDG impact. Follow `agent.md` for conventions and `product.md` for scope. Do not build anything out of scope.
 
 ## Stack
 
-Next.js 15 (App Router, TS, Tailwind) → **replaced:** Vite 5 + React 18 (TS, Tailwind, react-router-dom) · FastAPI (Python 3.11, async, Pydantic v2) · UV (Python package manager) · Gemini 2.5 Flash (`google-genai`) · Open-Meteo · PostgreSQL/Supabase via SQLAlchemy async (SQLite for local dev) · Telegram Bot API via `httpx`.
+Next.js 15 (App Router, TS, Tailwind) → **replaced:** Vite 5 + React 18 (TS, Tailwind, react-router-dom) · FastAPI (Python 3.11, async, Pydantic v2) · UV (Python package manager) · NVIDIA NIM (`google/gemma-4-31b-it`) · Open-Meteo · PostgreSQL/Supabase via SQLAlchemy async (SQLite for local dev) · Telegram Bot API via `httpx`.
 
 ## Phase 0 — Scaffold
 
 - Create the repo layout from `agent.md`.
-- `backend/requirements.txt`: fastapi, uvicorn, sqlalchemy[asyncio], asyncpg, aiosqlite, pydantic, pydantic-settings, httpx, google-genai, python-multipart, pytest, pytest-asyncio, ruff.
-- `.env.example` with `GEMINI_API_KEY`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`, `DATABASE_URL`, `PUBLIC_BASE_URL`, `STORE_IMAGES=false`.
+- `backend/requirements.txt`: fastapi, uvicorn, sqlalchemy[asyncio], asyncpg, aiosqlite, pydantic, pydantic-settings, httpx, python-multipart, pytest, pytest-asyncio, ruff.
+- `.env.example` with `NVIDIA_API_KEY`, `NVIDIA_INVOKE_URL`, `VISION_MODEL`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`, `DATABASE_URL`, `PUBLIC_BASE_URL`, `STORE_IMAGES=false`.
 - `config.py` using pydantic-settings; expose tunables: tier base windows, `MIN_WINDOW`, `AVG_SPEED_KMPH`, `MAX_RADIUS_KM`, `CO2E_FACTOR`, `URGENCY_ESCALATE=0.6`.
 - Health endpoint `GET /health`. CORS for the frontend origin.
 
@@ -59,7 +59,7 @@ Tests: ≤25°C returns base; HIGH_MOISTURE at 32°C returns exactly 135; very h
 
 `services/vision.py`:
 
-- Resize image (max 1280 px longest side), send to Gemini 2.5 Flash with a response schema:
+- Resize image (max 1280 px longest side), send to NVIDIA NIM `google/gemma-4-31b-it` with a response schema:
 
 ```python
 class FoodItem(BaseModel):
@@ -158,7 +158,7 @@ Design: clean, high-contrast, large touch targets, green/amber/red status palett
 ## Phase 9 — Demo hardening
 
 - `seed.py --demo` loads sample batches at different stages so the dashboard is never empty.
-- A hidden `?demo=1` toggle on `/donor` skips Gemini and returns a canned result (rice + dal, 6 kg, 30 portions, HIGH_MOISTURE) for offline demo safety.
+- A hidden `?demo=1` toggle on `/donor` skips the vision model and returns a canned result (rice + dal, 6 kg, 30 portions, HIGH_MOISTURE) for offline demo safety.
 - README: setup, env vars, Telegram bot and webhook setup (including `ngrok` for local), run commands, demo script from `product.md`.
 - Add a short "Limitations" section: window is a conservative heuristic, not a food-safety guarantee; humidity not yet modeled; volunteers and shelters are manually vetted.
 
@@ -167,7 +167,7 @@ Design: clean, high-contrast, large touch targets, green/amber/red status palett
 1. Photo → confirmed batch → Telegram alert in under 20 seconds end to end on normal Wi-Fi.
 2. High-moisture food at 32°C shows exactly 2 h 15 min (135 min) on the donor screen, the dashboard, and the alert.
 3. Two volunteers tapping Claim at once: exactly one succeeds.
-4. With Gemini, Open-Meteo, or Telegram blocked, the app degrades per `agent.md` fallbacks without crashing.
+4. With NVIDIA NIM, Open-Meteo, or Telegram blocked, the app degrades per `agent.md` fallbacks without crashing.
 5. All tests pass; no secrets committed; images are not persisted by default.
 6. UI copy never says "guaranteed safe".
 

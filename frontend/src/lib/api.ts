@@ -85,7 +85,7 @@ export function scanBatch(form: FormData): Promise<ScanResponse> {
 
 export function confirmBatch(
   id: string,
-  payload: { items: FoodItem[]; portions: number; expires_in_minutes?: number },
+  payload: { items: FoodItem[]; portions: number; expires_in_minutes?: number; tier?: string },
 ): Promise<{ batch: Batch; status: string }> {
   return apiFetch(`/api/batches/${id}/confirm`, {
     method: 'POST',

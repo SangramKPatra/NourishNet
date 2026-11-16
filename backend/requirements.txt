@@ -6,7 +6,6 @@ aiosqlite
 pydantic
 pydantic-settings
 httpx
-google-genai
 pillow
 python-multipart
 pytest

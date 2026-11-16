@@ -194,6 +194,10 @@ async def confirm_batch(
         batch.total_kg = sum(item.approx_kg for item in payload.items)
     if payload.portions is not None:
         batch.portions = payload.portions
+    if payload.tier is not None:
+        batch.tier = payload.tier
+        temp_c = batch.ambient_temp_c if batch.ambient_temp_c is not None else 30.0
+        batch.safe_window_min = safety.compute_safe_window(payload.tier, temp_c)
     if not batch.items or batch.portions <= 0:
         raise HTTPException(status_code=422, detail="Food items and portions are required")
 

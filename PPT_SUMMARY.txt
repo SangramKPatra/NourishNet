@@ -1,0 +1,62 @@
+NourishNet PPT Presentation Summary
+
+Slide 1: Team Info & Project Name
+- Project Name: NourishNet - Predictive Surplus Logistics & Food Rescue Engine
+- Team Members:
+  1. Sangram Keshari Patra
+  2. Rwitabrato Hanpal
+  3. Shiaditya Mandal
+
+Slide 2: Problem Statement
+- Small Scale: Campus canteens, event caterers, and restaurants throw away edible food nightly. Manual listing, assessment, and coordination takes too much time during closing hours.
+- Large Scale: 1/3 of global food production is wasted, creating methane emissions while millions face hunger.
+
+Slide 3: Solution
+- NourishNet bridges surplus food and those in need using computer vision and optimized logistics.
+- Core workflow: Scan photo → AI analyzes food type/quantity/perishability → Safety countdown based on weather → Automated dispatch to nearby volunteers → Real-time tracking.
+- Eliminates inventory logging friction and cold-chain delays.
+
+Slide 4: Feasability Study
+- Backend: FastAPI + async + SQLAlchemy with 31 passing tests
+- Safety engine with temperature-aware countdowns (15 min per °C above 25°C)
+- Weather service using Open-Meteo API with caching
+- Vision extraction using NVIDIA NIM (google/gemma-4-31b-it) with structured JSON output
+- Complete batch lifecycle API with claim, pickup, and deliver functionality
+
+Slide 5: SDG Goals
+- SDG 2 (Zero Hunger): Channels surplus food to vulnerable populations
+- SDG 12 (Responsible Consumption): Reduces institutional food waste
+- SDG 13 (Climate Action): Prevents methane emissions from food waste
+- SDG 11 (Sustainable Cities): Builds decentralized urban food-sharing networks
+
+Slide 6: System Design (DFD)
+1. Vision-to-Schema Pipeline: Photo → AI analysis → safety window calculation
+2. Automated Dispatch Engine: Matches perishable urgency with NGO capacity and distance
+3. Zero-App Volunteer Bot: Pushes alerts via Telegram/WhatsApp with route links
+
+Slide 7: Architecture Diagram (UML)
+- Frontend: Vite + React 18 + TypeScript + Tailwind CSS (mobile-first PWA)
+- Backend: FastAPI with async SQLAlchemy (PostgreSQL/SQLite)
+- Vision AI: NVIDIA NIM (google/gemma-4-31b-it) for image analysis
+- Weather Service: Open-Meteo API with 10-minute caching
+- Database: UUID-based storage with async session management
+
+Slide 8: Why Our Product Is Better
+- Effort: One photo + one tap vs manual listing/typing
+- Freshness: Weather-aware countdown vs static dates
+- Fulfillment: Push notifications to nearby volunteers vs pull browsing
+- Target: Everyday canteens vs only large events
+- Safety: Conservative safety windows with clear disclaimers
+
+Slide 9: AI Implementation
+- NVIDIA NIM (google/gemma-4-31b-it) for food item extraction from photos
+- Structured JSON output with Pydantic validation
+- Editable draft interface showing confidence
+- Temperature-based safety window calculation
+- Fallback to manual entry on AI failure
+- Confidence scoring for portion estimation
+
+Slide 10: Thank You
+- NourishNet: Turning one photo of leftover food into verified dispatch within 30 seconds
+- Eliminates friction, reduces waste, and connects surplus to those in need
+- Built with FastAPI, React, NVIDIA NIM, and Open-Meteo

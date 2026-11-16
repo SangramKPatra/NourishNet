@@ -41,6 +41,7 @@ class ConfirmRequest(BaseModel):
     items: list[FoodItem] | None = None
     portions: int | None = Field(default=None, gt=0)
     expires_in_minutes: int | None = Field(default=None, ge=5, le=1440)
+    tier: Tier | None = None
 
 
 class ShelterSummary(BaseModel):
