@@ -3,11 +3,13 @@ from datetime import datetime, timedelta
 from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..db import get_session
-from ..models import Batch, Donor, Shelter, Volunteer
+from ..models import Batch, DispatchLog, Donor, Shelter, User, Volunteer
+from ..services.auth import get_current_user
 from ..schemas import (
     BatchResponse,
     ClaimRequest,
@@ -16,9 +18,10 @@ from ..schemas import (
     ScanResponse,
     StatusResponse,
 )
-from ..services import dispatch, safety, vision, weather
+from ..services import dispatch, safety, storage, vision, weather
 
 router = APIRouter()
+bearer_scheme = HTTPBearer(auto_error=False)
 
 
 def _now() -> datetime:
@@ -35,7 +38,12 @@ def _urgency_band(score: float | None) -> str:
     return "normal"
 
 
-def _batch_response(batch: Batch, now: datetime | None = None) -> BatchResponse:
+def _batch_response(
+    batch: Batch,
+    shelter: Shelter | None = None,
+    image_url: str | None = None,
+    now: datetime | None = None,
+) -> BatchResponse:
     now = now or _now()
     remaining = safety.remaining_minutes(batch.expires_at, now) if batch.expires_at else 0
     score = None
@@ -61,11 +69,34 @@ def _batch_response(batch: Batch, now: datetime | None = None) -> BatchResponse:
         volunteer_id=batch.volunteer_id,
         lat=batch.lat,
         lng=batch.lng,
+        image_url=image_url,
         is_demo=batch.is_demo,
         remaining_min=remaining,
         urgency=score,
         urgency_band=_urgency_band(score),
+        shelter=(
+            {
+                "id": shelter.id,
+                "name": shelter.name,
+                "lat": shelter.lat,
+                "lng": shelter.lng,
+                "contact": shelter.contact,
+            }
+            if shelter
+            else None
+        ),
     )
+
+
+async def _require_distributor(
+    credentials: HTTPAuthorizationCredentials | None,
+    session: AsyncSession,
+) -> User:
+    token = credentials.credentials if credentials else None
+    user = await get_current_user(session, token)
+    if user is None or user.role != "distributor":
+        raise HTTPException(status_code=403, detail="A distributor account is required")
+    return user
 
 
 async def _get_batch(session: AsyncSession, batch_id: UUID) -> Batch:
@@ -87,6 +118,8 @@ async def scan_file(
     if not donor:
         raise HTTPException(status_code=401, detail="Invalid donor token")
 
+    image_bytes = await image.read()
+    await image.seek(0)
     vision_result, weather_data = await asyncio.gather(
         vision.run_vision(image),
         weather.get_weather(lat, lng),
@@ -116,6 +149,20 @@ async def scan_file(
         lng=lng,
     )
     session.add(batch)
+    image_url = await storage.store_batch_image(
+        image_bytes,
+        image.content_type,
+        batch.id,
+    )
+    if image_url:
+        session.add(DispatchLog(
+            id=uuid4(),
+            batch_id=batch.id,
+            channel="image_storage",
+            payload={"url": image_url},
+            status="stored",
+            attempt=1,
+        ))
     await session.commit()
 
     return ScanResponse(
@@ -150,7 +197,9 @@ async def confirm_batch(
     if not batch.items or batch.portions <= 0:
         raise HTTPException(status_code=422, detail="Food items and portions are required")
 
-    batch.expires_at = _now() + timedelta(minutes=batch.safe_window_min or 30)
+    expiry_minutes = payload.expires_in_minutes or batch.safe_window_min or 30
+    batch.safe_window_min = expiry_minutes
+    batch.expires_at = _now() + timedelta(minutes=expiry_minutes)
     batch.status = "pending"
     await session.commit()
     await session.refresh(batch)
@@ -206,13 +255,36 @@ async def claim_batch(
 
 
 @router.post("/{batch_id}/pickup", response_model=StatusResponse)
-async def pickup_batch(batch_id: UUID, session: AsyncSession = Depends(get_session)):
+async def pickup_batch(
+    batch_id: UUID,
+    credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
+    session: AsyncSession = Depends(get_session),
+):
+    await _require_distributor(credentials, session)
     batch = await _get_batch(session, batch_id)
-    if batch.status != "claimed":
-        raise HTTPException(status_code=409, detail="Only claimed batches can be picked up")
-    batch.status = "picked_up"
+    if batch.status not in {"pending", "dispatched", "at_risk", "claimed"}:
+        raise HTTPException(status_code=409, detail="This request is no longer available for pickup")
+    result = await session.execute(
+        update(Batch)
+        .where(
+            Batch.id == batch_id,
+            Batch.status.in_(["pending", "dispatched", "at_risk", "claimed"]),
+        )
+        .values(status="picked_up")
+    )
+    if result.rowcount != 1:
+        await session.rollback()
+        raise HTTPException(status_code=409, detail="Another distributor already picked up this request")
     await session.commit()
-    return StatusResponse(batch=_batch_response(batch))
+    batch = await _get_batch(session, batch_id)
+    shelter = await session.get(Shelter, batch.shelter_id) if batch.shelter_id else None
+    image_log = await session.scalar(
+        select(DispatchLog).where(
+            DispatchLog.batch_id == batch.id,
+            DispatchLog.channel == "image_storage",
+        ).order_by(DispatchLog.created_at.desc())
+    )
+    return StatusResponse(batch=_batch_response(batch, shelter, image_log.payload.get("url") if image_log else None))
 
 
 @router.post("/{batch_id}/deliver", response_model=StatusResponse)
@@ -236,4 +308,39 @@ async def list_batches(
     if status:
         query = query.where(Batch.status == status)
     batches = list((await session.scalars(query)).all())
-    return [_batch_response(batch) for batch in batches]
+    shelters = {
+        shelter.id: shelter
+        for shelter in (
+            await session.scalars(
+                select(Shelter).where(Shelter.id.in_(
+                    [batch.shelter_id for batch in batches if batch.shelter_id]
+                ))
+            )
+        ).all()
+    }
+    image_logs = {
+        log.batch_id: log.payload.get("url")
+        for log in (
+            await session.scalars(
+                select(DispatchLog).where(
+                    DispatchLog.batch_id.in_([batch.id for batch in batches]),
+                    DispatchLog.channel == "image_storage",
+                )
+            )
+        ).all()
+        if log.payload
+    }
+    return [_batch_response(batch, shelters.get(batch.shelter_id), image_logs.get(batch.id)) for batch in batches]
+
+
+@router.get("/{batch_id}", response_model=BatchResponse)
+async def get_batch(batch_id: UUID, session: AsyncSession = Depends(get_session)):
+    batch = await _get_batch(session, batch_id)
+    shelter = await session.get(Shelter, batch.shelter_id) if batch.shelter_id else None
+    image_log = await session.scalar(
+        select(DispatchLog).where(
+            DispatchLog.batch_id == batch.id,
+            DispatchLog.channel == "image_storage",
+        ).order_by(DispatchLog.created_at.desc())
+    )
+    return _batch_response(batch, shelter, image_log.payload.get("url") if image_log else None)

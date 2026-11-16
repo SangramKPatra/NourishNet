@@ -6,6 +6,7 @@ import DashboardPage from './pages/dashboard/page';
 import DonorPage from './pages/donor/page';
 import AuthPage from './pages/auth/page';
 import HomePage from './pages/home/page';
+import RequestPage from './pages/request/page';
 import { AuthProvider } from './lib/auth';
 import './index.css';
 
@@ -20,6 +21,7 @@ createRoot(document.getElementById('root')!).render(
             <Route path="/auth" element={<AuthPage />} />
             <Route path="/donor" element={<DonorPage />} />
             <Route path="/dashboard" element={<DashboardPage />} />
+            <Route path="/requests/:id" element={<RequestPage />} />
           </Routes>
         </Layout>
       </BrowserRouter>

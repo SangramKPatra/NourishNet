@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
-import { getStats, listBatches, type Batch, type Stats } from '../../lib/api';
+import { getStats, listBatches, pickupBatch, type Batch, type Stats } from '../../lib/api';
+import { useAuth } from '../../lib/auth';
+import SupplierDashboard from '../supplier/page';
 import FoodBackdrop from '../../components/FoodBackdrop';
 
 function countdown(minutes: number) {
@@ -25,7 +27,7 @@ const URGENCY = {
   critical: { bar: 'bg-[#cf5d45]', text: 'text-[#b23c26]', chip: 'bg-[#ffe9ea] text-[#b23c26]', label: 'Critical' },
 } as const;
 
-function BatchCard({ batch }: { batch: Batch }) {
+function BatchCard({ batch, onOpen }: { batch: Batch; onOpen: (batch: Batch) => void }) {
   const [remaining, setRemaining] = useState(batch.remaining_min);
   useEffect(() => {
     const timer = window.setInterval(() => setRemaining((value) => Math.max(0, value - 1)), 60000);
@@ -37,6 +39,7 @@ function BatchCard({ batch }: { batch: Batch }) {
   return (
     <article className="rounded-2xl border border-[#dfe7dc] border-l-4 bg-white p-5 shadow-[0_8px_24px_rgba(24,52,43,0.04)]" style={{ borderLeftColor: urgency === 'critical' ? '#cf5d45' : urgency === 'watch' ? '#d39a2d' : '#83b31c' }}>
       <div className="flex items-start justify-between gap-4">
+        {batch.image_url && <img src={batch.image_url} alt="" className="h-20 w-20 shrink-0 rounded-xl object-cover" />}
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
             <span className={`h-2.5 w-2.5 rounded-full ${st.bar}`} />
@@ -44,7 +47,7 @@ function BatchCard({ batch }: { batch: Batch }) {
             <span className="rounded-full bg-[#d7f5ee] px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#0f766e]">{batch.tier.replace('_', ' ')}</span>
             {batch.is_demo && <span className="rounded-full bg-[#fff3d0] px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#a76e16]">Demo</span>}
           </div>
-          <h3 className="mt-4 font-display text-2xl font-bold">{batch.items.map((item) => item.name).join(' + ') || 'Manual entry needed'}</h3>
+          <button type="button" onClick={() => onOpen(batch)} className="mt-4 block text-left font-display text-2xl font-bold hover:text-[#0f766e]">{batch.items.map((item) => item.name).join(' + ') || 'Manual entry needed'}</button>
           <p className="mt-1 text-sm text-[#729082]">{batch.portions} portions · {batch.total_kg.toFixed(1)} kg · {batch.tier.replace('_', ' ')}</p>
           <p className="mt-1 text-xs text-[#9aafa3]">{batch.ambient_temp_c != null ? `${Math.round(batch.ambient_temp_c)}°C · ${batch.humidity_pct}% humidity · ${batch.weather_source ?? 'unknown'}` : 'Weather data unavailable'}</p>
         </div>
@@ -59,7 +62,7 @@ function BatchCard({ batch }: { batch: Batch }) {
       </div>
       <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-[#e4eadf] pt-4 text-xs font-semibold text-[#729082]">
         <span>Weather {batch.ambient_temp_c ? `${Math.round(batch.ambient_temp_c)}°C` : '—'} · {batch.weather_source ?? 'unknown'}</span>
-        <span>{batch.shelter_id ? 'Shelter matched' : 'Finding a shelter…'}</span>
+        <span>{batch.shelter ? `Shelter: ${batch.shelter.name}` : 'Finding a shelter…'}</span>
         <span>{pct.toFixed(0)}% window left</span>
       </div>
     </article>
@@ -67,9 +70,11 @@ function BatchCard({ batch }: { batch: Batch }) {
 }
 
 export default function DashboardPage() {
+  const { user, ready } = useAuth();
   const [batches, setBatches] = useState<Batch[]>([]);
   const [stats, setStats] = useState<Stats | null>(null);
   const [filter, setFilter] = useState('');
+  const [selected, setSelected] = useState<Batch | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const load = useCallback(async () => {
@@ -85,6 +90,8 @@ export default function DashboardPage() {
     }
   }, []);
   useEffect(() => { void load(); const timer = window.setInterval(() => void load(), 5000); return () => window.clearInterval(timer); }, [load]);
+
+  if (ready && user?.role === 'supplier') return <SupplierDashboard />;
 
   const filtered = filter ? batches.filter((b) => b.status === filter) : batches;
   const counts = batches.reduce<Record<string, number>>((acc, b) => { acc[b.status] = (acc[b.status] ?? 0) + 1; return acc; }, {});
@@ -160,7 +167,7 @@ export default function DashboardPage() {
           {loading ? (
             <div className="mt-6 grid gap-4"><div className="skeleton h-48" /><div className="skeleton h-48" /></div>
           ) : filtered.length ? (
-            <div className="mt-6 grid gap-4 lg:grid-cols-2">{filtered.map((batch) => <BatchCard key={batch.id} batch={batch} />)}</div>
+            <div className="mt-6 grid gap-4 lg:grid-cols-2">{filtered.map((batch) => <BatchCard key={batch.id} batch={batch} onOpen={setSelected} />)}</div>
           ) : (
             <div className="mt-6 rounded-[2rem] border border-dashed border-[#cbd8c9] bg-white p-12 text-center">
               <div className="text-4xl">🥕</div>
@@ -169,7 +176,48 @@ export default function DashboardPage() {
             </div>
           )}
         </div>
+        {selected && <BatchDetailsModal batch={selected} onClose={() => setSelected(null)} onUpdated={(next) => { setSelected(next); void load(); }} />}
       </div>
+      </div>
+    </div>
+  );
+}
+
+function BatchDetailsModal({ batch, onClose, onUpdated }: { batch: Batch; onClose: () => void; onUpdated: (batch: Batch) => void }) {
+  const { user, token } = useAuth();
+  const [working, setWorking] = useState(false);
+  const [error, setError] = useState('');
+  const canPickUp = user?.role === 'distributor' && ['pending', 'dispatched', 'at_risk', 'claimed'].includes(batch.status);
+
+  const markPickingUp = async () => {
+    if (!token) return;
+    setWorking(true);
+    setError('');
+    try {
+      const result = await pickupBatch(batch.id, token);
+      onUpdated(result.batch);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not update this request.');
+    } finally {
+      setWorking(false);
+    }
+  };
+
+  return (
+    <div role="dialog" aria-modal="true" aria-label="Food supply request" className="fixed inset-0 z-50 grid place-items-center bg-[#18342b]/55 p-4" onClick={onClose}>
+      <div className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-[2rem] bg-[#fdfbf3] shadow-2xl" onClick={(event) => event.stopPropagation()}>
+        <div className="flex items-start justify-between gap-4 border-b border-[#e4eadf] p-6">
+          <div><p className="eyebrow">Food supply request</p><h2 className="mt-2 font-display text-3xl font-bold">{batch.items.map((item) => item.name).join(' + ') || 'Food pickup'}</h2><p className="mt-1 text-sm capitalize text-[#729082]">{batch.status.replace('_', ' ')} · {batch.portions} portions · {batch.total_kg.toFixed(1)} kg</p></div>
+          <button type="button" onClick={onClose} aria-label="Close request" className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-white text-xl font-bold text-[#729082]">×</button>
+        </div>
+        {batch.image_url ? <img src={batch.image_url} alt="Donated food" className="h-64 w-full object-cover" /> : <div className="grid h-40 place-items-center bg-[#e9f4e4] text-sm font-semibold text-[#557267]">Image unavailable</div>}
+        {error && <p className="mx-6 mt-5 rounded-xl bg-[#fff0ed] p-4 text-sm font-semibold text-[#b94e3a]">{error}</p>}
+        <div className="grid gap-4 p-6 md:grid-cols-2">
+          <section className="rounded-2xl bg-white p-5"><p className="eyebrow">Exact collection location</p><p className="mt-2 font-display text-xl font-bold">{batch.lat?.toFixed(5)}, {batch.lng?.toFixed(5)}</p><a className="mt-3 inline-block font-bold text-[#0f766e] underline" href={`https://www.google.com/maps/search/?api=1&query=${batch.lat},${batch.lng}`} target="_blank" rel="noreferrer">Open in Maps ↗</a></section>
+          <section className="rounded-2xl bg-[#d7f5ee] p-5"><p className="eyebrow">Destination</p>{batch.shelter ? <><h3 className="mt-2 font-display text-xl font-bold">{batch.shelter.name}</h3><p className="mt-1 text-sm text-[#0f5f56]">{batch.shelter.lat.toFixed(5)}, {batch.shelter.lng.toFixed(5)}</p>{batch.shelter.contact && <p className="mt-1 text-sm font-semibold text-[#0f5f56]">{batch.shelter.contact}</p>}</> : <p className="mt-2 text-sm text-[#0f5f56]">Shelter matching in progress.</p>}</section>
+          <section className="rounded-2xl bg-white p-5 md:col-span-2"><p className="eyebrow">Pickup details</p><div className="mt-3 flex flex-wrap gap-2">{batch.items.map((item) => <span key={item.name} className="rounded-full bg-[#edf4e5] px-3 py-2 text-sm font-semibold">{item.name} · {item.approx_kg.toFixed(1)} kg</span>)}</div><p className="mt-4 text-sm text-[#729082]">{batch.ambient_temp_c != null ? `${Math.round(batch.ambient_temp_c)}°C · ${batch.humidity_pct}% humidity` : 'Weather data unavailable'} · {batch.remaining_min} minutes remaining</p></section>
+        </div>
+        <div className="flex justify-end gap-3 border-t border-[#e4eadf] p-6">{canPickUp && <button type="button" onClick={() => void markPickingUp()} disabled={working} className="btn-pop btn-dark rounded-full px-6 py-3 font-bold disabled:opacity-60">{working ? 'Updating…' : 'Mark as picking up'}</button>}<button type="button" onClick={onClose} className="rounded-full border border-[#cbd8c9] bg-white px-6 py-3 font-bold text-[#557267]">Close</button></div>
       </div>
     </div>
   );

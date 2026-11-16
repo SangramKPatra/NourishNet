@@ -34,9 +34,11 @@ class Settings(BaseSettings):
     SUPABASE_URL: str = ""
     SUPABASE_ANON_KEY: str = ""
     SUPABASE_PUBLISHABLE_KEY: str = ""
+    SUPABASE_SERVICE_ROLE_KEY: str = ""
 
     # Image storage
-    STORE_IMAGES: bool = False
+    STORE_IMAGES: bool = True
+    STORAGE_BUCKET: str = "food-images"
 
     # Dispatch & safety tuning (neutral fallbacks; real values live in .env)
     MIN_WINDOW: int = 30

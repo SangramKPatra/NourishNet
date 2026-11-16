@@ -26,6 +26,9 @@ export default function Layout({ children }: { children: ReactNode }) {
           <nav className="flex items-center gap-2">
             {user ? (
               <>
+                <Link to="/dashboard" className="hidden rounded-full border border-[#dfe7dc] bg-white px-4 py-2 text-sm font-bold text-[#557267] transition hover:border-[#799d13] sm:block">
+                  {user.role === 'supplier' ? 'Supplier desk' : 'Distributor queue'}
+                </Link>
                 <span className="hidden max-w-[200px] truncate rounded-full bg-[#edf4e5] px-3 py-2 text-xs font-bold text-[#557c16] sm:block">
                   {user.email}
                 </span>

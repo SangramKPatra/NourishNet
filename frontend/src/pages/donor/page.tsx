@@ -29,6 +29,7 @@ export default function DonorPage() {
   const [scan, setScan] = useState<ScanResponse | null>(null);
   const [items, setItems] = useState<FoodItem[]>([]);
   const [portions, setPortions] = useState(0);
+  const [expiryMinutes, setExpiryMinutes] = useState(30);
   const [phase, setPhase] = useState<'ready' | 'scanning' | 'review' | 'confirming' | 'success'>('ready');
   const [error, setError] = useState('');
   const [recent, setRecent] = useState<Batch[]>([]);
@@ -63,7 +64,8 @@ export default function DonorPage() {
       const result = await scanBatch(form);
       setScan(result);
       setItems(result.items.length ? result.items : [{ name: '', approx_kg: 0.1 }]);
-      setPortions(result.portions);
+      setPortions(result.portions || 1);
+      setExpiryMinutes(result.safe_window_min);
       setPhase('review');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not read that photo. Try again.');
@@ -75,10 +77,13 @@ export default function DonorPage() {
     if (!scan || !items.length || items.some((item) => !item.name.trim()) || portions < 1) {
       return setError('Add a food name and portion count.');
     }
+    if (!Number.isInteger(expiryMinutes) || expiryMinutes < 5 || expiryMinutes > 1440) {
+      return setError('Choose an expiry time between 5 minutes and 24 hours.');
+    }
     setError('');
     setPhase('confirming');
     try {
-      await confirmBatch(scan.draft_id, { items, portions });
+      await confirmBatch(scan.draft_id, { items, portions, expires_in_minutes: expiryMinutes });
       setPhase('success');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not dispatch this batch.');
@@ -191,7 +196,7 @@ export default function DonorPage() {
                 {scan?.needs_manual_entry && <p className="mt-3 rounded-xl bg-[#fff3d0] px-4 py-3 text-sm font-semibold text-[#765b1d]">We could not identify the food automatically. Add the name and approximate weight below.</p>}
                 <div className="mt-5 space-y-3">
                   {items.map((item, index) => <div className="flex gap-2" key={`${item.name}-${index}`}>
-                    <input aria-label={`Food item ${index + 1} name`} placeholder="Food name" value={item.name} onChange={(e) => updateItem(index, 'name', e.target.value)} className="field flex-1" />
+                    <input autoFocus={index === 0 && scan?.needs_manual_entry} aria-label={`Food item ${index + 1} name`} type="text" placeholder="Type the food name" value={item.name} onChange={(e) => updateItem(index, 'name', e.target.value)} className="field flex-1" />
                     <input aria-label={`Food item ${index + 1} weight`} type="number" min="0.1" step="0.1" value={item.approx_kg} onChange={(e) => updateItem(index, 'approx_kg', e.target.value)} className="field w-24" />
                     <span className="self-center text-xs font-bold text-[#729082]">kg</span>
                   </div>)}
@@ -201,7 +206,7 @@ export default function DonorPage() {
               <div className="metric-card"><span className="eyebrow">Portions</span><input type="number" min="1" value={portions} onChange={(e) => setPortions(Number(e.target.value))} className="mt-5 w-full border-0 bg-transparent font-display text-5xl font-bold outline-none" /><p className="mt-2 text-sm text-[#729082]">estimated meals</p></div>
             </div>
             <div className="mt-5 grid gap-5 sm:grid-cols-3">
-              <div className="metric-card"><span className="eyebrow">Collection window</span><strong className="mt-3 block font-display text-3xl">{scan ? formatMinutes(scan.safe_window_min) : '—'}</strong><p className="mt-1 text-xs text-[#729082]">conservative estimate</p></div>
+              <div className="metric-card"><span className="eyebrow">Collection window</span><input aria-label="Expiry time in minutes" type="number" min="5" max="1440" value={expiryMinutes} onChange={(e) => setExpiryMinutes(Number(e.target.value))} className="mt-3 w-full border-0 bg-transparent font-display text-3xl font-bold outline-none" /><p className="mt-1 text-xs text-[#729082]">minutes · suggested {scan ? formatMinutes(scan.safe_window_min) : '—'}</p></div>
               <div className="metric-card"><span className="eyebrow">Outside now</span><strong className="mt-3 block font-display text-3xl">{scan ? `${Math.round(scan.ambient_temp_c)}°C` : '—'}</strong><p className="mt-1 text-xs text-[#729082]">{scan ? `${scan.humidity_pct}% humidity · ${scan.weather_source}` : ''}</p></div>
               <div className="metric-card"><span className="eyebrow">Perishability</span><strong className="mt-3 block font-display text-3xl capitalize">{scan ? scan.tier.replace('_', ' ').toLowerCase() : '—'}</strong><p className="mt-1 text-xs text-[#729082]">{scan ? `${scan.needs_manual_entry ? 'Manual entry may be needed' : 'AI extraction complete'}` : ''}</p></div>
             </div>
@@ -237,7 +242,7 @@ export default function DonorPage() {
           <p className="eyebrow mt-6">Pickup alert sent</p>
           <h1 className="mt-3 font-display text-5xl font-bold tracking-[-0.04em]">You kept {scan?.portions ?? 0} meals in the rescue loop.</h1>
           <p className="mx-auto mt-5 max-w-lg leading-7 text-[#729082]">Nearby volunteers have the details. The batch should be collected within the conservative window below.</p>
-          <div className="mx-auto mt-8 rounded-[2rem] bg-[#18342b] p-8 text-white"><span className="text-sm font-bold uppercase tracking-[0.14em] text-[#d9f06d]">Collect within</span><strong className="mt-2 block font-display text-6xl">{scan ? formatMinutes(scan.safe_window_min) : ''}</strong></div>
+          <div className="mx-auto mt-8 rounded-[2rem] bg-[#18342b] p-8 text-white"><span className="text-sm font-bold uppercase tracking-[0.14em] text-[#d9f06d]">Collect within</span><strong className="mt-2 block font-display text-6xl">{formatMinutes(expiryMinutes)}</strong></div>
           <div className="mt-6 flex justify-center gap-3"><button onClick={() => { setImageFile(null); setPreview(''); setScan(null); setPhase('ready'); }} className="rounded-full border border-[#cbd8c9] bg-white px-5 py-3 font-bold">Scan another</button><button onClick={() => navigate('/dashboard')} className="btn-pop btn-dark rounded-full px-5 py-3 font-bold">Open dashboard →</button></div>
         </section>
       )}

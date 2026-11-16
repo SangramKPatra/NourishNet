@@ -40,6 +40,15 @@ class ScanResponse(BaseModel):
 class ConfirmRequest(BaseModel):
     items: list[FoodItem] | None = None
     portions: int | None = Field(default=None, gt=0)
+    expires_in_minutes: int | None = Field(default=None, ge=5, le=1440)
+
+
+class ShelterSummary(BaseModel):
+    id: UUID
+    name: str
+    lat: float
+    lng: float
+    contact: str | None
 
 
 class BatchResponse(BaseModel):
@@ -62,10 +71,12 @@ class BatchResponse(BaseModel):
     volunteer_id: UUID | None
     lat: float | None
     lng: float | None
+    image_url: str | None
     is_demo: bool
     remaining_min: int = 0
     urgency: float | None = None
     urgency_band: str = "normal"
+    shelter: ShelterSummary | None = None
 
 
 class ConfirmResponse(BaseModel):

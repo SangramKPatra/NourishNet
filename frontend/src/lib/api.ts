@@ -52,10 +52,18 @@ export interface Batch {
   volunteer_id: string | null;
   lat: number | null;
   lng: number | null;
+  image_url: string | null;
   is_demo: boolean;
   remaining_min: number;
   urgency: number | null;
   urgency_band: string;
+  shelter: {
+    id: string;
+    name: string;
+    lat: number;
+    lng: number;
+    contact: string | null;
+  } | null;
 }
 
 export interface Stats {
@@ -77,7 +85,7 @@ export function scanBatch(form: FormData): Promise<ScanResponse> {
 
 export function confirmBatch(
   id: string,
-  payload: { items: FoodItem[]; portions: number },
+  payload: { items: FoodItem[]; portions: number; expires_in_minutes?: number },
 ): Promise<{ batch: Batch; status: string }> {
   return apiFetch(`/api/batches/${id}/confirm`, {
     method: 'POST',
@@ -89,6 +97,17 @@ export function confirmBatch(
 export function listBatches(status?: string): Promise<Batch[]> {
   const query = status ? `?status=${encodeURIComponent(status)}` : '';
   return apiFetch<Batch[]>(`/api/batches${query}`);
+}
+
+export function getBatch(id: string): Promise<Batch> {
+  return apiFetch<Batch>(`/api/batches/${id}`);
+}
+
+export function pickupBatch(id: string, token: string): Promise<{ batch: Batch }> {
+  return apiFetch(`/api/batches/${id}/pickup`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+  });
 }
 
 export function getStats(): Promise<Stats> {

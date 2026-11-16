@@ -4,32 +4,40 @@ from datetime import datetime
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from sqlalchemy import select, update
+from sqlalchemy import delete, select
 
 from ..config import settings
 from ..db import AsyncSessionLocal, Base, engine
-from ..models import Batch, User
+from ..models import Batch, DispatchLog, User
 from ..routers import batches, stats, telegram, auth
+from ..services import storage
 
 
 async def expire_batches() -> None:
-    """Background maintenance for expired and at-risk unclaimed batches."""
+    """Remove expired food and its related records from the active system."""
     while True:
         try:
             async with AsyncSessionLocal() as session:
                 now = datetime.utcnow()
-                await session.execute(
-                    update(Batch)
-                    .where(
-                        Batch.expires_at <= now,
-                        Batch.status.in_(["draft", "pending", "dispatched", "at_risk"]),
+                expired_batches = list((
+                    await session.scalars(
+                        select(Batch).where(
+                            Batch.expires_at <= now,
+                            Batch.status != "delivered",
+                        )
                     )
-                    .values(status="expired")
-                )
+                ).all())
+                if expired_batches:
+                    batch_ids = [batch.id for batch in expired_batches]
+                    for batch in expired_batches:
+                        await storage.delete_batch_image(batch.id)
+                    await session.execute(delete(DispatchLog).where(DispatchLog.batch_id.in_(batch_ids)))
+                    await session.execute(delete(Batch).where(Batch.id.in_(batch_ids)))
                 await session.commit()
         except Exception:
             # Maintenance must never take down the API process.
-            pass
+            import logging
+            logging.getLogger(__name__).exception("Expired batch cleanup failed")
         await asyncio.sleep(30)
 
 

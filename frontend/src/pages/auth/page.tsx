@@ -29,17 +29,19 @@ export default function AuthPage() {
     }
     setLoading(true);
     try {
-      const user = mode === 'signup'
-        ? await signUp({
-            email: email,
-            password: password,
-            role: role,
-            lat: FALLBACK_LOCATION.lat,
-            lng: FALLBACK_LOCATION.lng,
-            radius_km: 10,
-          })
-        : await signIn(email, password);
-      navigate(user.role === 'supplier' ? '/donor' : '/dashboard');
+      if (mode === 'signup') {
+        await signUp({
+          email: email,
+          password: password,
+          role: role,
+          lat: FALLBACK_LOCATION.lat,
+          lng: FALLBACK_LOCATION.lng,
+          radius_km: 10,
+        });
+      } else {
+        await signIn(email, password);
+      }
+      navigate('/dashboard');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Authentication failed.');
     } finally {

@@ -148,11 +148,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
 
     if (!res.ok) {
-      const errorData = await res.json();
-      throw new Error(errorData.detail || `Login failed (${res.status})`);
+      throw new Error(await readError(res));
     }
 
-    const data = await res.json() as { token: string; user: UserResponse };
+    const data = await res.json() as { token: string; user: AuthUser };
     persist(data.user, data.token);
     return data.user;
   };
@@ -172,8 +171,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
 
     if (!res.ok) {
-      const errorData = await res.json();
-      throw new Error(errorData.detail || `Signup failed (${res.status})`);
+      throw new Error(await readError(res));
     }
 
     // After signup, auto-signin
